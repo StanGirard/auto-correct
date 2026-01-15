@@ -36,9 +36,9 @@
 
 ## 🎬 Demo
 
-https://github.com/user-attachments/assets/auto-correct-demo.mp4
-
-<video src="auto-correct-demo.mp4" controls width="100%"></video>
+<p align="center">
+  <img src="public/demo.gif" alt="AutoCorrect Demo" width="640">
+</p>
 
 ---
 
