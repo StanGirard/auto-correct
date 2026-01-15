@@ -58,6 +58,112 @@ const BanIcon = () => (
   </svg>
 )
 
+// Summary Section Component
+function SummarySection({
+  matches,
+  score,
+  onFixAll,
+  isFixing
+}: {
+  matches: ExtendedMatch[]
+  score: number
+  onFixAll: () => void
+  isFixing: boolean
+}) {
+  const spellingErrors = matches.filter(m => m.rule.category.id === 'TYPOS')
+  const grammarErrors = matches.filter(m => m.rule.category.id === 'GRAMMAR')
+  const styleErrors = matches.filter(m => !['TYPOS', 'GRAMMAR'].includes(m.rule.category.id))
+
+  if (matches.length === 0) return null
+
+  // Get the first error as main recommendation
+  const mainError = matches[0]
+  const mainSuggestion = mainError.replacements[0]?.value
+
+  return (
+    <div className="px-4 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100">
+      {/* Score Bar */}
+      <div className="flex items-center gap-3 mb-3">
+        <span className="text-sm font-medium text-gray-600">Score</span>
+        <div className="flex-1 bg-gray-200 rounded-full h-2.5">
+          <div
+            className={`h-2.5 rounded-full transition-all duration-500 ${
+              score >= 80 ? 'bg-emerald-500' : score >= 50 ? 'bg-amber-500' : 'bg-red-500'
+            }`}
+            style={{ width: `${score}%` }}
+          />
+        </div>
+        <span className={`text-sm font-bold ${
+          score >= 80 ? 'text-emerald-600' : score >= 50 ? 'text-amber-600' : 'text-red-600'
+        }`}>
+          {score}/100
+        </span>
+      </div>
+
+      {/* Stats */}
+      <div className="flex flex-wrap gap-3 mb-3">
+        {spellingErrors.length > 0 && (
+          <div className="flex items-center gap-1.5 text-sm">
+            <span className="w-2 h-2 rounded-full bg-red-500"></span>
+            <span className="text-gray-600">
+              {spellingErrors.length} orthographe
+            </span>
+          </div>
+        )}
+        {grammarErrors.length > 0 && (
+          <div className="flex items-center gap-1.5 text-sm">
+            <span className="w-2 h-2 rounded-full bg-orange-500"></span>
+            <span className="text-gray-600">
+              {grammarErrors.length} grammaire
+            </span>
+          </div>
+        )}
+        {styleErrors.length > 0 && (
+          <div className="flex items-center gap-1.5 text-sm">
+            <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+            <span className="text-gray-600">
+              {styleErrors.length} style
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Main Recommendation */}
+      {mainSuggestion && (
+        <div className="mb-3 p-2 bg-white/60 rounded-lg">
+          <p className="text-xs text-gray-500 mb-1">Recommandation principale:</p>
+          <p className="text-sm text-gray-700">
+            <span className="text-red-500 line-through">{mainError.errorText}</span>
+            {' → '}
+            <span className="text-emerald-600 font-medium">{mainSuggestion}</span>
+          </p>
+        </div>
+      )}
+
+      {/* Fix All Button */}
+      <button
+        onClick={onFixAll}
+        disabled={isFixing}
+        className="w-full py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+      >
+        {isFixing ? (
+          <>
+            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            Correction en cours...
+          </>
+        ) : (
+          <>
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+            Tout corriger ({matches.length})
+          </>
+        )}
+      </button>
+    </div>
+  )
+}
+
 export function Popup() {
   const [settings, setLocalSettings] = useState<Settings>(DEFAULT_SETTINGS)
   const [connected, setConnected] = useState<boolean | null>(null)
@@ -68,6 +174,7 @@ export function Popup() {
   const [loading, setLoading] = useState(true)
   const [hasActiveField, setHasActiveField] = useState(false)
   const [textLength, setTextLength] = useState(0)
+  const [isFixingAll, setIsFixingAll] = useState(false)
   const pollInterval = useRef<number | null>(null)
 
   // Fetch matches from content script
@@ -134,21 +241,47 @@ export function Popup() {
     setDismissedMatches(prev => new Set([...prev, index]))
   }
 
-  function applySuggestion(matchIndex: number, suggestion: string) {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (tabs[0]?.id) {
-        const message: ApplySuggestionMessage = {
-          type: 'APPLY_SUGGESTION',
-          matchIndex,
-          replacement: suggestion,
+  function applySuggestion(matchIndex: number, suggestion: string): Promise<void> {
+    return new Promise((resolve) => {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (tabs[0]?.id) {
+          const message: ApplySuggestionMessage = {
+            type: 'APPLY_SUGGESTION',
+            matchIndex,
+            replacement: suggestion,
+          }
+          chrome.tabs.sendMessage(tabs[0].id, message, () => {
+            dismissMatch(matchIndex)
+            // Refetch matches after applying
+            setTimeout(() => {
+              fetchMatches()
+              resolve()
+            }, 100)
+          })
+        } else {
+          resolve()
         }
-        chrome.tabs.sendMessage(tabs[0].id, message, () => {
-          dismissMatch(matchIndex)
-          // Refetch matches after applying
-          setTimeout(fetchMatches, 100)
-        })
-      }
+      })
     })
+  }
+
+  async function fixAllErrors() {
+    setIsFixingAll(true)
+    try {
+      // Apply suggestions one by one (from the last to avoid index shifting)
+      const matchesToFix = [...visibleMatches].reverse()
+      for (const match of matchesToFix) {
+        if (match.replacements.length > 0) {
+          const actualIndex = matches.indexOf(match)
+          await applySuggestion(actualIndex, match.replacements[0].value)
+          await new Promise(r => setTimeout(r, 150)) // Small delay between corrections
+        }
+      }
+    } finally {
+      setIsFixingAll(false)
+      // Final refresh
+      setTimeout(fetchMatches, 200)
+    }
   }
 
   const visibleMatches = matches.filter((_, i) => !dismissedMatches.has(i))
@@ -298,19 +431,14 @@ export function Popup() {
         </div>
       </div>
 
-      {/* Summary Banner */}
-      {!loading && hasActiveField && visibleMatches.length > 0 && (
-        <div className="mx-4 my-3 p-3 bg-gradient-to-r from-orange-50 to-amber-50 rounded-xl border border-orange-100">
-          <p className="text-sm text-gray-700">
-            Votre texte contient{' '}
-            <span className="font-semibold">{visibleMatches.length} suggestion{visibleMatches.length > 1 ? 's' : ''}</span>
-            {grammarCount > 0 && spellingCount > 0 && (
-              <span className="text-gray-500">
-                {' '}({grammarCount} grammaire, {spellingCount} orthographe)
-              </span>
-            )}
-          </p>
-        </div>
+      {/* Summary Section */}
+      {!loading && hasActiveField && (
+        <SummarySection
+          matches={visibleMatches}
+          score={score}
+          onFixAll={fixAllErrors}
+          isFixing={isFixingAll}
+        />
       )}
 
       {/* Error Cards */}
