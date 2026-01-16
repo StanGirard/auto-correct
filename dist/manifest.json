@@ -1,26 +1,23 @@
 {
   "manifest_version": 3,
-  "name": "AutoCorrect",
+  "name": "AutoCorrect by Quivr",
   "description": "Correction grammaticale et orthographique en temps réel",
   "version": "1.0.0",
   "icons": {
-    "16": "icons/icon16.svg",
-    "48": "icons/icon48.svg",
-    "128": "icons/icon128.svg"
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
   },
   "permissions": [
     "storage",
     "activeTab"
   ],
-  "host_permissions": [
-    "<all_urls>"
-  ],
   "action": {
     "default_popup": "src/popup/index.html",
     "default_icon": {
-      "16": "icons/icon16.svg",
-      "48": "icons/icon48.svg",
-      "128": "icons/icon128.svg"
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
     }
   },
   "background": {
@@ -30,7 +27,7 @@
   "content_scripts": [
     {
       "js": [
-        "assets/index.ts-loader-DIKUgqel.js"
+        "assets/index.ts-loader-DBHDfsY_.js"
       ],
       "matches": [
         "<all_urls>"
@@ -46,8 +43,8 @@
       ],
       "resources": [
         "assets/storage-Lryb-ELa.js",
-        "assets/language-tool-client-CaKIfVxh.js",
-        "assets/index.ts-Db6K9sUj.js"
+        "assets/language-tool-client-B4BnbzYn.js",
+        "assets/index.ts-BK3WYvD8.js"
       ],
       "use_dynamic_url": false
     }

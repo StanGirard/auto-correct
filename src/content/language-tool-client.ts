@@ -102,6 +102,7 @@ export async function checkText(
           text,
           language: langParam,
           preferredVariants: 'fr-FR,en-US',
+          level: 'picky',
         }),
         signal: controller.signal,
       })

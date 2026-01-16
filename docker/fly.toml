@@ -13,22 +13,31 @@ primary_region = 'cdg'
   Java_Xms = "4096m"
   Java_Xmx = "6144m"
 
-  # Garbage Collector optimisé
-  langtool_GarbageCollector = "G1GC"
+  # N-gram data for better error detection
+  langtool_languageModel = "/ngrams"
 
-  # Pipeline caching & prewarming (CRITIQUE)
+  # JVM GC Options (Phase 2 - corrected method)
+  JAVA_OPTS = "-XX:+UseG1GC -XX:MaxGCPauseMillis=150 -XX:InitiatingHeapOccupancyPercent=35 -XX:+ParallelRefProcEnabled"
+
+  # Pipeline caching & prewarming
   langtool_pipelinePrewarming = "true"
   langtool_pipelineCaching = "true"
-  langtool_maxPipelinePoolSize = "8"
-  langtool_pipelineExpireTimeInSeconds = "600"
+  langtool_maxPipelinePoolSize = "16"
+  langtool_pipelineExpireTimeInSeconds = "300"
 
   # Result caching
-  langtool_cacheSize = "1000"
-  langtool_cacheTTLSeconds = "300"
+  langtool_cacheSize = "5000"
+  langtool_cacheTTLSeconds = "600"
 
-  # Limites
-  langtool_maxCheckTimeMillis = "60000"
-  langtool_maxCheckThreads = "4"
+  # Threading (Phase 2)
+  langtool_maxCheckThreads = "8"
+  langtool_maxTextCheckerThreads = "16"
+  langtool_textCheckerQueueSize = "32"
+
+  # Limites (Phase 2)
+  langtool_maxCheckTimeMillis = "30000"
+  langtool_maxWorkQueueSize = "200"
+  langtool_maxSpellingSuggestions = "5"
 
 [http_service]
   internal_port = 8010
@@ -40,8 +49,8 @@ primary_region = 'cdg'
 
   [http_service.concurrency]
     type = "requests"
-    soft_limit = 50
-    hard_limit = 100
+    soft_limit = 100
+    hard_limit = 200
 
 [[http_service.checks]]
   grace_period = "120s"
@@ -55,3 +64,7 @@ primary_region = 'cdg'
   cpu_kind = 'performance'
   cpus = 4
   memory_mb = 8192
+
+[mounts]
+  source = "ngrams_data"
+  destination = "/ngrams"

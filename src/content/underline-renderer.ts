@@ -6,6 +6,7 @@ interface TextPosition {
   y: number
   width: number
   height: number
+  matchIndex: number  // Index of the match this position belongs to
 }
 
 interface VisibleRange {
@@ -18,6 +19,13 @@ interface TooltipCallbacks {
   onIgnore: (match: LanguageToolMatch) => void
 }
 
+// Feature detection for CSS Custom Highlights API
+const supportsCustomHighlights = (): boolean => {
+  return typeof CSS !== 'undefined' &&
+         'highlights' in CSS &&
+         typeof (window as unknown as { Highlight?: typeof Highlight }).Highlight !== 'undefined'
+}
+
 export class UnderlineRenderer {
   private element: HTMLInputElement | HTMLTextAreaElement | HTMLElement
   private overlay: HTMLDivElement | null = null
@@ -28,10 +36,46 @@ export class UnderlineRenderer {
   private ignoredMatches: Set<string> = new Set()
   private callbacks: TooltipCallbacks | null = null
   private boundHideTooltip: (e: Event) => void
+  private useCustomHighlights: boolean = false
+  private highlightStyleSheet: CSSStyleSheet | null = null
 
   constructor(element: HTMLInputElement | HTMLTextAreaElement | HTMLElement) {
     this.element = element
     this.boundHideTooltip = this.handleOutsideClick.bind(this)
+
+    // Only use CSS Custom Highlights for contenteditable elements (not inputs/textareas)
+    // Inputs/textareas don't support Range selection properly for highlights
+    const isContentEditable = !(element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement)
+    this.useCustomHighlights = isContentEditable && supportsCustomHighlights()
+
+    if (this.useCustomHighlights) {
+      console.log('[AutoCorrect] Using CSS Custom Highlights API (modern path)')
+      this.setupCustomHighlightStyles()
+    }
+  }
+
+  private setupCustomHighlightStyles(): void {
+    // Create and inject CSS for ::highlight() pseudo-elements
+    // These styles will apply to text highlighted by the CSS Custom Highlights API
+    this.highlightStyleSheet = new CSSStyleSheet()
+    this.highlightStyleSheet.replaceSync(`
+      ::highlight(autocorrect-spelling) {
+        text-decoration: underline wavy #EF4444;
+        text-decoration-skip-ink: none;
+        text-underline-offset: 2px;
+      }
+      ::highlight(autocorrect-grammar) {
+        text-decoration: underline wavy #F59E0B;
+        text-decoration-skip-ink: none;
+        text-underline-offset: 2px;
+      }
+      ::highlight(autocorrect-style) {
+        text-decoration: underline wavy #3B82F6;
+        text-decoration-skip-ink: none;
+        text-underline-offset: 2px;
+      }
+    `)
+    document.adoptedStyleSheets = [...document.adoptedStyleSheets, this.highlightStyleSheet]
   }
 
   init(callbacks: TooltipCallbacks): void {
@@ -263,21 +307,38 @@ export class UnderlineRenderer {
   }
 
   render(matches: LanguageToolMatch[], text: string): void {
-    if (!this.shadowRoot) return
-
     this.currentMatches = matches
     this.hideTooltip()
+
+    // Filter ignored matches
+    const activeMatches = matches.filter(match => {
+      const matchKey = `${match.offset}-${match.length}-${match.rule.id}`
+      return !this.ignoredMatches.has(matchKey)
+    })
+
+    console.log('[AutoCorrect] Rendering', activeMatches.length, 'matches (useCustomHighlights:', this.useCustomHighlights, ')')
+
+    if (activeMatches.length === 0) {
+      this.clearHighlights()
+      return
+    }
+
+    // Use CSS Custom Highlights for contenteditable if supported
+    if (this.useCustomHighlights) {
+      this.renderWithCustomHighlights(activeMatches, text)
+      return
+    }
+
+    // Fallback: overlay-based rendering for inputs/textareas or unsupported browsers
+    if (!this.shadowRoot) return
 
     // Clear existing underlines (keep style)
     const existingUnderlines = this.shadowRoot.querySelectorAll('.error-highlight')
     existingUnderlines.forEach(el => el.remove())
 
-    console.log('[AutoCorrect] Rendering', matches.length, 'matches')
-    if (matches.length === 0) return
-
     // For optimization: only render errors in visible range + buffer
     const visibleRange = this.getVisibleTextRange(text)
-    const visibleMatches = matches.filter(match => {
+    const visibleMatches = activeMatches.filter(match => {
       const matchEnd = match.offset + match.length
       // Include errors that overlap with visible range (with 500 char buffer)
       const bufferStart = Math.max(0, visibleRange.startOffset - 500)
@@ -290,20 +351,15 @@ export class UnderlineRenderer {
     console.log('[AutoCorrect] Positions calculated:', positions)
 
     let renderedCount = 0
-    positions.forEach((pos, i) => {
-      const match = visibleMatches[i]
-      const originalIndex = matches.indexOf(match)
+    positions.forEach((pos) => {
+      const match = visibleMatches[pos.matchIndex]
+      if (!match) return  // Safety check
 
-      // Skip ignored matches
-      const matchKey = `${match.offset}-${match.length}-${match.rule.id}`
-      if (this.ignoredMatches.has(matchKey)) {
-        console.log('[AutoCorrect] Skipping ignored match:', matchKey)
-        return
-      }
+      // Store the index in the full matches array for reference
+      const originalIndex = this.currentMatches.indexOf(match)
 
       // Skip if position is outside visible area
       if (pos.y < -50 || pos.y > this.element.clientHeight + 50) {
-        console.log('[AutoCorrect] Skipping out-of-bounds match:', pos.y, 'element height:', this.element.clientHeight)
         return
       }
 
@@ -324,7 +380,126 @@ export class UnderlineRenderer {
       this.shadowRoot!.appendChild(underline)
       renderedCount++
     })
-    console.log('[AutoCorrect] Rendered', renderedCount, 'underlines')
+    console.log('[AutoCorrect] Rendered', renderedCount, 'underlines (multi-rect support enabled)')
+  }
+
+  private renderWithCustomHighlights(matches: LanguageToolMatch[], text: string): void {
+    // Clear existing highlights first
+    this.clearHighlights()
+
+    const element = this.element as HTMLElement
+    const positionMap = buildPositionMap(element)
+
+    // Create separate Highlight objects for each error type
+    const spellingRanges: Range[] = []
+    const grammarRanges: Range[] = []
+    const styleRanges: Range[] = []
+
+    matches.forEach(match => {
+      try {
+        const startPos = getPositionFromMap(positionMap, match.offset)
+        if (!startPos) return
+
+        const endPos = getPositionFromMap(positionMap, match.offset + match.length - 1)
+        if (!endPos) return
+
+        const range = document.createRange()
+        range.setStart(startPos.node, startPos.offset)
+        range.setEnd(endPos.node, Math.min(endPos.offset + 1, endPos.node.length))
+
+        // Categorize by error type
+        const category = match.rule.category.id.toUpperCase()
+        if (category.includes('TYPO') || category.includes('SPELL')) {
+          spellingRanges.push(range)
+        } else if (category.includes('GRAMMAR')) {
+          grammarRanges.push(range)
+        } else {
+          styleRanges.push(range)
+        }
+      } catch (e) {
+        console.log('[AutoCorrect] CSS Highlights range error:', e)
+      }
+    })
+
+    // Register highlights with the CSS Custom Highlights API
+    const cssHighlights = (CSS as unknown as { highlights: Map<string, Highlight> }).highlights
+    const HighlightClass = (window as unknown as { Highlight: typeof Highlight }).Highlight
+
+    if (spellingRanges.length > 0) {
+      cssHighlights.set('autocorrect-spelling', new HighlightClass(...spellingRanges))
+    }
+    if (grammarRanges.length > 0) {
+      cssHighlights.set('autocorrect-grammar', new HighlightClass(...grammarRanges))
+    }
+    if (styleRanges.length > 0) {
+      cssHighlights.set('autocorrect-style', new HighlightClass(...styleRanges))
+    }
+
+    console.log('[AutoCorrect] CSS Custom Highlights rendered:', {
+      spelling: spellingRanges.length,
+      grammar: grammarRanges.length,
+      style: styleRanges.length
+    })
+
+    // Still need overlay for click handlers (tooltip interaction)
+    // Render invisible click targets on the overlay
+    this.renderClickTargets(matches, text)
+  }
+
+  private renderClickTargets(matches: LanguageToolMatch[], text: string): void {
+    if (!this.shadowRoot) return
+
+    // Clear existing click targets
+    const existingTargets = this.shadowRoot.querySelectorAll('.click-target')
+    existingTargets.forEach(el => el.remove())
+
+    const positions = this.calculatePositions(matches, text)
+
+    positions.forEach((pos) => {
+      const match = matches[pos.matchIndex]
+      if (!match) return
+
+      const originalIndex = this.currentMatches.indexOf(match)
+
+      // Create an invisible click target for tooltip interaction
+      const target = document.createElement('span')
+      target.className = 'click-target'
+      target.style.cssText = `
+        position: absolute;
+        left: ${pos.x}px;
+        top: ${pos.y}px;
+        width: ${pos.width}px;
+        height: ${pos.height}px;
+        cursor: pointer;
+        pointer-events: auto;
+        background: transparent;
+      `
+      target.dataset.matchIndex = String(originalIndex)
+
+      target.addEventListener('click', (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        this.showTooltip(match, e.clientX, e.clientY, pos)
+      })
+
+      this.shadowRoot!.appendChild(target)
+    })
+  }
+
+  private clearHighlights(): void {
+    // Clear CSS Custom Highlights
+    if (this.useCustomHighlights) {
+      const cssHighlights = (CSS as unknown as { highlights: Map<string, Highlight> }).highlights
+      cssHighlights.delete('autocorrect-spelling')
+      cssHighlights.delete('autocorrect-grammar')
+      cssHighlights.delete('autocorrect-style')
+    }
+
+    // Clear overlay underlines
+    if (this.shadowRoot) {
+      const existingUnderlines = this.shadowRoot.querySelectorAll('.error-highlight, .click-target')
+      existingUnderlines.forEach(el => el.remove())
+    }
   }
 
   private getVisibleTextRange(text: string): VisibleRange {
@@ -541,16 +716,14 @@ export class UnderlineRenderer {
     document.body.appendChild(mirror)
 
     const positions: TextPosition[] = []
-    const paddingLeft = parseFloat(styles.paddingLeft) || 0
     const paddingTop = parseFloat(styles.paddingTop) || 0
-    const borderLeft = parseFloat(styles.borderLeftWidth) || 0
     const borderTop = parseFloat(styles.borderTopWidth) || 0
     const lineHeight = parseFloat(styles.lineHeight) || parseFloat(styles.fontSize) * 1.2
 
     const scrollLeft = element.scrollLeft || 0
     const scrollTop = element.scrollTop || 0
 
-    matches.forEach(match => {
+    matches.forEach((match, matchIndex) => {
       const beforeText = text.substring(0, match.offset)
       const errorText = text.substring(match.offset, match.offset + match.length)
 
@@ -572,7 +745,6 @@ export class UnderlineRenderer {
       mirror.appendChild(errorSpan)
 
       // Get measurements using getBoundingClientRect for accuracy
-      const preRect = preSpan.getBoundingClientRect()
       const errorRect = errorSpan.getBoundingClientRect()
       const mirrorRect = mirror.getBoundingClientRect()
 
@@ -588,6 +760,7 @@ export class UnderlineRenderer {
         y: y,
         width: Math.max(width, 10),
         height: lineHeight,
+        matchIndex,
       })
     })
 
@@ -605,7 +778,7 @@ export class UnderlineRenderer {
     // to actual DOM text node positions
     const positionMap = buildPositionMap(element as HTMLElement)
 
-    matches.forEach(match => {
+    matches.forEach((match, matchIndex) => {
       try {
         const startPos = getPositionFromMap(positionMap, match.offset)
         if (!startPos) {
@@ -625,15 +798,17 @@ export class UnderlineRenderer {
         range.setEnd(endPos.node, Math.min(endPos.offset + 1, endPos.node.length))
 
         const rects = range.getClientRects()
-        if (rects.length > 0) {
-          const rect = rects[0]
+        // Multi-rect support: loop through all rects to handle word-wrapped errors
+        // Each rect represents a separate line fragment of the same error
+        Array.from(rects).forEach(rect => {
           positions.push({
             x: rect.left - elementRect.left + element.scrollLeft,
             y: rect.top - elementRect.top + element.scrollTop,
             width: Math.max(rect.width, 10),
             height: rect.height,
+            matchIndex,
           })
-        }
+        })
       } catch (e) {
         console.log('[AutoCorrect] Position calculation error:', e)
       }
@@ -644,11 +819,22 @@ export class UnderlineRenderer {
 
   destroy(): void {
     this.hideTooltip()
+    this.clearHighlights()
+
     if (this.resizeObserver) {
       this.resizeObserver.disconnect()
     }
     if (this.overlay) {
       this.overlay.remove()
+    }
+
+    // Remove the CSS Custom Highlights stylesheet
+    if (this.highlightStyleSheet) {
+      const index = document.adoptedStyleSheets.indexOf(this.highlightStyleSheet)
+      if (index !== -1) {
+        document.adoptedStyleSheets = document.adoptedStyleSheets.filter((_, i) => i !== index)
+      }
+      this.highlightStyleSheet = null
     }
   }
 }

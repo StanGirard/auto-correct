@@ -1,7 +1,7 @@
 import { Settings, LanguageToolMatch } from '../shared/types'
 import { checkText } from './language-tool-client'
 import { UnderlineRenderer } from './underline-renderer'
-import { buildPositionMap, getPositionFromMap } from './position-map'
+import { findRangeInDOM } from './position-map'
 import type { Message, MatchesResponseMessage, ApplySuggestionMessage } from '../shared/messaging'
 
 interface ManagedField {
@@ -59,12 +59,18 @@ function isEditableElement(element: Element): element is HTMLInputElement | HTML
 }
 
 function getTextContent(element: HTMLInputElement | HTMLTextAreaElement | HTMLElement): string {
+  let text: string
   if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
-    return element.value
+    text = element.value
+  } else {
+    // Use innerText for contenteditable to preserve line breaks
+    // innerText respects <br> and block elements as newlines
+    text = (element as HTMLElement).innerText || ''
   }
-  // Use innerText for contenteditable to preserve line breaks
-  // innerText respects <br> and block elements as newlines
-  return (element as HTMLElement).innerText || ''
+  // Normalize Unicode to NFC form to ensure consistent character counting
+  // This converts decomposed characters (e + combining accent) to precomposed (é)
+  // which matches how LanguageTool counts characters
+  return text.normalize('NFC')
 }
 
 // Get text around cursor position (for large documents, only check nearby text)
@@ -126,7 +132,25 @@ function setTextContent(
   length: number,
   replacement: string
 ): void {
-  console.log('[AutoCorrect] setTextContent called:', { offset, length, replacement, elementType: element.tagName })
+  // Get the full text to verify the match
+  const fullText = getTextContent(element)
+  const matchedText = fullText.substring(offset, offset + length)
+
+  console.log('[AutoCorrect] setTextContent called:', {
+    offset,
+    length,
+    replacement,
+    elementType: element.tagName,
+    matchedText: `"${matchedText}"`,
+    contextBefore: `"${fullText.substring(Math.max(0, offset - 5), offset)}"`,
+    contextAfter: `"${fullText.substring(offset + length, offset + length + 5)}"`
+  })
+
+  // Warn if the matched text doesn't look right (potential offset issue)
+  if (matchedText.length !== length) {
+    console.warn('[AutoCorrect] WARNING: Matched text length mismatch!',
+      { expected: length, actual: matchedText.length, matchedText: `"${matchedText}"` })
+  }
 
   if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
     const text = element.value
@@ -144,30 +168,26 @@ function setTextContent(
     console.log('[AutoCorrect] Replacement done for input/textarea')
   } else {
     // For contenteditable elements (including CKEditor, etc.)
-    console.log('[AutoCorrect] Contenteditable replacement at offset:', offset)
+    console.log('[AutoCorrect] Contenteditable replacement at offset:', offset, 'length:', length)
 
-    // Use position map to correctly find DOM positions
-    // This accounts for virtual \n characters from <br> and block elements
-    const positionMap = buildPositionMap(element as HTMLElement)
-
-    const startPos = getPositionFromMap(positionMap, offset)
-    if (!startPos) {
-      console.warn('[AutoCorrect] Could not find start position for offset:', offset)
+    // Use findRangeInDOM for reliable DOM position finding (TreeWalker-based like LanguageTool)
+    const range = findRangeInDOM(element as HTMLElement, offset, length)
+    if (!range) {
+      console.warn('[AutoCorrect] Could not create range for replacement')
       return
     }
 
-    const endPos = getPositionFromMap(positionMap, offset + length - 1)
-    if (!endPos) {
-      console.warn('[AutoCorrect] Could not find end position for offset:', offset + length - 1)
-      return
-    }
-
-    console.log('[AutoCorrect] Found positions:', {
-      startNode: startPos.node.textContent?.substring(0, 30),
-      startOffset: startPos.offset,
-      endNode: endPos.node.textContent?.substring(0, 30),
-      endOffset: endPos.offset
+    // Verify the selection matches expected text
+    const rangeText = range.toString()
+    console.log('[AutoCorrect] Range created:', {
+      rangeText: `"${rangeText}"`,
+      expectedText: `"${matchedText}"`,
+      matches: rangeText === matchedText
     })
+
+    if (rangeText !== matchedText) {
+      console.warn('[AutoCorrect] WARNING: Range text mismatch! Expected:', `"${matchedText}"`, 'Got:', `"${rangeText}"`)
+    }
 
     // Check if this is CKEditor
     const isCKEditor = element.classList.contains('ck-editor__editable') ||
@@ -177,19 +197,10 @@ function setTextContent(
       // For CKEditor: use clipboard paste simulation
       console.log('[AutoCorrect] CKEditor detected, using paste simulation')
 
-      // Set selection directly without focusing first
       const selection = window.getSelection()
       if (selection) {
-        const range = document.createRange()
-        range.setStart(startPos.node, startPos.offset)
-        range.setEnd(endPos.node, Math.min(endPos.offset + 1, endPos.node.length))
-
         selection.removeAllRanges()
         selection.addRange(range)
-
-        console.log('[AutoCorrect] Selection set on CKEditor:', {
-          selectedText: selection.toString()
-        })
 
         // Use clipboard API to paste the replacement text
         setTimeout(async () => {
@@ -232,15 +243,14 @@ function setTextContent(
         try {
           const selection = window.getSelection()
           if (selection) {
-            const range = document.createRange()
-            range.setStart(startPos.node, startPos.offset)
-            range.setEnd(endPos.node, Math.min(endPos.offset + 1, endPos.node.length))
-
             selection.removeAllRanges()
             selection.addRange(range)
 
+            const selectedText = selection.toString()
             console.log('[AutoCorrect] Selection set:', {
-              selectedText: selection.toString()
+              selectedText: `"${selectedText}"`,
+              expectedText: `"${matchedText}"`,
+              matches: selectedText === matchedText
             })
 
             // Use insertText which is supported by modern browsers
