@@ -14,30 +14,14 @@
   <img src="https://img.shields.io/badge/TypeScript-5.0-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript">
 </p>
 
----
-
-## ⚡ Quick Install (30 seconds)
-
-```
-1. Download → https://github.com/StanGirard/auto-correct/releases/latest
-2. Unzip the file
-3. Go to chrome://extensions → Enable "Developer mode"
-4. Click "Load unpacked" → Select the dist folder
-5. Done! ✅
-```
-
 <p align="center">
-  <a href="https://github.com/StanGirard/auto-correct/releases/latest">
-    <img src="https://img.shields.io/badge/⬇️_Download_Extension-blue?style=for-the-badge&logoColor=white" alt="Download">
-  </a>
+  <img src="public/demo.gif" alt="AutoCorrect Demo" width="700" />
 </p>
 
----
-
-## 🎬 Demo
-
 <p align="center">
-  <img src="public/demo.gif" alt="AutoCorrect Demo" width="640">
+  <a href="https://github.com/QuivrHQ/auto-correct/releases/latest">
+    <img src="https://img.shields.io/badge/⬇️_Download_Extension-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Download">
+  </a>
 </p>
 
 ---
