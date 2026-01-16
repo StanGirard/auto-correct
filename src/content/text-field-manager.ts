@@ -1,6 +1,7 @@
 import { Settings, LanguageToolMatch } from '../shared/types'
 import { checkText } from './language-tool-client'
 import { UnderlineRenderer } from './underline-renderer'
+import { buildPositionMap, getPositionFromMap } from './position-map'
 import type { Message, MatchesResponseMessage, ApplySuggestionMessage } from '../shared/messaging'
 
 interface ManagedField {
@@ -61,8 +62,9 @@ function getTextContent(element: HTMLInputElement | HTMLTextAreaElement | HTMLEl
   if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
     return element.value
   }
-  // Use textContent for consistency with DOM traversal in position calculation
-  return element.textContent || ''
+  // Use innerText for contenteditable to preserve line breaks
+  // innerText respects <br> and block elements as newlines
+  return (element as HTMLElement).innerText || ''
 }
 
 // Get text around cursor position (for large documents, only check nearby text)
@@ -144,139 +146,119 @@ function setTextContent(
     // For contenteditable elements (including CKEditor, etc.)
     console.log('[AutoCorrect] Contenteditable replacement at offset:', offset)
 
-    const fullText = element.textContent || ''
-    const errorText = fullText.substring(offset, offset + length)
-    console.log('[AutoCorrect] Looking for text:', errorText, 'at offset:', offset)
+    // Use position map to correctly find DOM positions
+    // This accounts for virtual \n characters from <br> and block elements
+    const positionMap = buildPositionMap(element as HTMLElement)
 
-    // Find the text node containing our offset
-    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT)
-    let currentOffset = 0
-    let found = false
+    const startPos = getPositionFromMap(positionMap, offset)
+    if (!startPos) {
+      console.warn('[AutoCorrect] Could not find start position for offset:', offset)
+      return
+    }
 
-    while (walker.nextNode()) {
-      const node = walker.currentNode as Text
-      const nodeText = node.textContent || ''
-      const nodeLength = nodeText.length
+    const endPos = getPositionFromMap(positionMap, offset + length - 1)
+    if (!endPos) {
+      console.warn('[AutoCorrect] Could not find end position for offset:', offset + length - 1)
+      return
+    }
 
-      if (currentOffset + nodeLength > offset) {
-        const nodeOffset = offset - currentOffset
+    console.log('[AutoCorrect] Found positions:', {
+      startNode: startPos.node.textContent?.substring(0, 30),
+      startOffset: startPos.offset,
+      endNode: endPos.node.textContent?.substring(0, 30),
+      endOffset: endPos.offset
+    })
 
-        console.log('[AutoCorrect] Found node:', {
-          nodeText: nodeText.substring(0, 50),
-          nodeOffset,
-          nodeLength
+    // Check if this is CKEditor
+    const isCKEditor = element.classList.contains('ck-editor__editable') ||
+                       element.classList.contains('ck-content')
+
+    if (isCKEditor) {
+      // For CKEditor: use clipboard paste simulation
+      console.log('[AutoCorrect] CKEditor detected, using paste simulation')
+
+      // Set selection directly without focusing first
+      const selection = window.getSelection()
+      if (selection) {
+        const range = document.createRange()
+        range.setStart(startPos.node, startPos.offset)
+        range.setEnd(endPos.node, Math.min(endPos.offset + 1, endPos.node.length))
+
+        selection.removeAllRanges()
+        selection.addRange(range)
+
+        console.log('[AutoCorrect] Selection set on CKEditor:', {
+          selectedText: selection.toString()
         })
 
-        // Check if this is CKEditor
-        const isCKEditor = element.classList.contains('ck-editor__editable') ||
-                           element.classList.contains('ck-content')
+        // Use clipboard API to paste the replacement text
+        setTimeout(async () => {
+          try {
+            // Re-set selection
+            selection.removeAllRanges()
+            selection.addRange(range)
 
-        // Use a closure to capture the current node and offset
-        const targetNode = node
-        const targetOffset = nodeOffset
-        const targetLength = Math.min(length, nodeLength - nodeOffset)
+            // Write to clipboard and trigger paste
+            await navigator.clipboard.writeText(replacement)
+            console.log('[AutoCorrect] Clipboard written, triggering paste')
 
-        if (isCKEditor) {
-          // For CKEditor: use clipboard paste simulation
-          console.log('[AutoCorrect] CKEditor detected, using paste simulation')
+            // Create and dispatch paste event
+            const pasteEvent = new ClipboardEvent('paste', {
+              bubbles: true,
+              cancelable: true,
+              clipboardData: new DataTransfer()
+            })
+            pasteEvent.clipboardData?.setData('text/plain', replacement)
 
-          // Set selection directly without focusing first
+            const pasteHandled = element.dispatchEvent(pasteEvent)
+            console.log('[AutoCorrect] Paste event dispatched, handled:', pasteHandled)
+
+            // If paste didn't work, try execCommand as fallback
+            if (!pasteHandled || pasteEvent.defaultPrevented) {
+              document.execCommand('insertText', false, replacement)
+            }
+          } catch (err) {
+            console.error('[AutoCorrect] Paste simulation failed:', err)
+            // Fallback to execCommand
+            document.execCommand('insertText', false, replacement)
+          }
+        }, 10)
+      }
+    } else {
+      // For regular contenteditable: focus then use selection + execCommand
+      element.focus()
+
+      setTimeout(() => {
+        try {
           const selection = window.getSelection()
           if (selection) {
             const range = document.createRange()
-            range.setStart(targetNode, targetOffset)
-            range.setEnd(targetNode, targetOffset + targetLength)
+            range.setStart(startPos.node, startPos.offset)
+            range.setEnd(endPos.node, Math.min(endPos.offset + 1, endPos.node.length))
 
             selection.removeAllRanges()
             selection.addRange(range)
 
-            console.log('[AutoCorrect] Selection set on CKEditor:', {
-              startOffset: targetOffset,
-              endOffset: targetOffset + targetLength,
+            console.log('[AutoCorrect] Selection set:', {
               selectedText: selection.toString()
             })
 
-            // Use clipboard API to paste the replacement text
-            setTimeout(async () => {
-              try {
-                // Re-set selection
-                selection.removeAllRanges()
-                selection.addRange(range)
+            // Use insertText which is supported by modern browsers
+            const success = document.execCommand('insertText', false, replacement)
 
-                // Write to clipboard and trigger paste
-                await navigator.clipboard.writeText(replacement)
-                console.log('[AutoCorrect] Clipboard written, triggering paste')
-
-                // Create and dispatch paste event
-                const pasteEvent = new ClipboardEvent('paste', {
-                  bubbles: true,
-                  cancelable: true,
-                  clipboardData: new DataTransfer()
-                })
-                pasteEvent.clipboardData?.setData('text/plain', replacement)
-
-                const pasteHandled = element.dispatchEvent(pasteEvent)
-                console.log('[AutoCorrect] Paste event dispatched, handled:', pasteHandled)
-
-                // If paste didn't work, try execCommand as fallback
-                if (!pasteHandled || pasteEvent.defaultPrevented) {
-                  document.execCommand('insertText', false, replacement)
-                }
-              } catch (err) {
-                console.error('[AutoCorrect] Paste simulation failed:', err)
-                // Fallback to execCommand
-                document.execCommand('insertText', false, replacement)
-              }
-            }, 10)
-          }
-        } else {
-          // For regular contenteditable: focus then use selection + execCommand
-          element.focus()
-
-          setTimeout(() => {
-            try {
-              const selection = window.getSelection()
-              if (selection) {
-                const range = document.createRange()
-                range.setStart(targetNode, targetOffset)
-                range.setEnd(targetNode, targetOffset + targetLength)
-
-                selection.removeAllRanges()
-                selection.addRange(range)
-
-                console.log('[AutoCorrect] Selection set:', {
-                  startOffset: targetOffset,
-                  endOffset: targetOffset + targetLength,
-                  selectedText: selection.toString()
-                })
-
-                // Use insertText which is supported by modern browsers
-                const success = document.execCommand('insertText', false, replacement)
-
-                if (success) {
-                  console.log('[AutoCorrect] Replacement done via execCommand')
-                } else {
-                  // Fallback: try delete + insertText
-                  console.log('[AutoCorrect] execCommand failed, trying delete + insertText')
-                  document.execCommand('delete', false)
-                  document.execCommand('insertText', false, replacement)
-                }
-              }
-            } catch (err) {
-              console.error('[AutoCorrect] Error during replacement:', err)
+            if (success) {
+              console.log('[AutoCorrect] Replacement done via execCommand')
+            } else {
+              // Fallback: try delete + insertText
+              console.log('[AutoCorrect] execCommand failed, trying delete + insertText')
+              document.execCommand('delete', false)
+              document.execCommand('insertText', false, replacement)
             }
-          }, 10)
+          }
+        } catch (err) {
+          console.error('[AutoCorrect] Error during replacement:', err)
         }
-
-        found = true
-        break
-      }
-
-      currentOffset += nodeLength
-    }
-
-    if (!found) {
-      console.warn('[AutoCorrect] Could not find text node at offset:', offset)
+      }, 10)
     }
 
     // Trigger input event to notify the editor

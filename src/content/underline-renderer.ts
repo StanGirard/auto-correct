@@ -1,4 +1,5 @@
 import { LanguageToolMatch } from '../shared/types'
+import { buildPositionMap, getPositionFromMap } from './position-map'
 
 interface TextPosition {
   x: number
@@ -496,7 +497,7 @@ export class UnderlineRenderer {
     if (this.element instanceof HTMLInputElement || this.element instanceof HTMLTextAreaElement) {
       return this.element.value
     }
-    return this.element.textContent || ''
+    return (this.element as HTMLElement).innerText || ''
   }
 
   private calculatePositions(matches: LanguageToolMatch[], text: string): TextPosition[] {
@@ -599,48 +600,39 @@ export class UnderlineRenderer {
     const element = this.element
     const elementRect = element.getBoundingClientRect()
 
-    // Use the actual text content for matching (textContent is more reliable than innerText for DOM traversal)
-    const actualText = element.textContent || ''
+    // Build position map once for all matches
+    // This correctly maps innerText offsets (which include virtual \n for <br> and blocks)
+    // to actual DOM text node positions
+    const positionMap = buildPositionMap(element as HTMLElement)
 
     matches.forEach(match => {
       try {
-        // Find the error text in the actual DOM text content
-        const errorText = text.substring(match.offset, match.offset + match.length)
-
-        // Search for this error text near the expected position in actualText
-        // Allow some flexibility in case innerText and textContent differ slightly
-        let searchStart = Math.max(0, match.offset - 50)
-        let searchEnd = Math.min(actualText.length, match.offset + match.length + 50)
-        let searchRegion = actualText.substring(searchStart, searchEnd)
-
-        let foundIndex = searchRegion.indexOf(errorText)
-        if (foundIndex === -1) {
-          // Try case-insensitive search
-          foundIndex = searchRegion.toLowerCase().indexOf(errorText.toLowerCase())
+        const startPos = getPositionFromMap(positionMap, match.offset)
+        if (!startPos) {
+          console.log('[AutoCorrect] Could not find start position for offset:', match.offset)
+          return
         }
 
-        if (foundIndex !== -1) {
-          const actualOffset = searchStart + foundIndex
+        const endPos = getPositionFromMap(positionMap, match.offset + match.length - 1)
+        if (!endPos) {
+          console.log('[AutoCorrect] Could not find end position for offset:', match.offset + match.length - 1)
+          return
+        }
 
-          const range = document.createRange()
-          const textNode = this.findTextNodeByOffset(element, actualOffset, match.length)
+        const range = document.createRange()
+        range.setStart(startPos.node, startPos.offset)
+        // End offset is +1 because setEnd is exclusive
+        range.setEnd(endPos.node, Math.min(endPos.offset + 1, endPos.node.length))
 
-          if (textNode) {
-            range.setStart(textNode.node, textNode.offset)
-            const endOffset = Math.min(textNode.offset + match.length, textNode.node.textContent?.length || 0)
-            range.setEnd(textNode.node, endOffset)
-
-            const rects = range.getClientRects()
-            if (rects.length > 0) {
-              const rect = rects[0]
-              positions.push({
-                x: rect.left - elementRect.left + element.scrollLeft,
-                y: rect.top - elementRect.top + element.scrollTop,
-                width: Math.max(rect.width, 10),
-                height: rect.height,
-              })
-            }
-          }
+        const rects = range.getClientRects()
+        if (rects.length > 0) {
+          const rect = rects[0]
+          positions.push({
+            x: rect.left - elementRect.left + element.scrollLeft,
+            y: rect.top - elementRect.top + element.scrollTop,
+            width: Math.max(rect.width, 10),
+            height: rect.height,
+          })
         }
       } catch (e) {
         console.log('[AutoCorrect] Position calculation error:', e)
@@ -648,33 +640,6 @@ export class UnderlineRenderer {
     })
 
     return positions
-  }
-
-  private findTextNodeByOffset(element: Element, offset: number, length: number): { node: Text; offset: number } | null {
-    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT)
-    let currentOffset = 0
-
-    while (walker.nextNode()) {
-      const node = walker.currentNode as Text
-      const nodeText = node.textContent || ''
-      const nodeLength = nodeText.length
-
-      if (currentOffset + nodeLength > offset) {
-        const nodeOffset = offset - currentOffset
-
-        // Check if the match spans multiple nodes
-        if (nodeOffset + length <= nodeLength) {
-          return { node, offset: nodeOffset }
-        } else {
-          // Match spans multiple nodes, just return start position
-          return { node, offset: nodeOffset }
-        }
-      }
-
-      currentOffset += nodeLength
-    }
-
-    return null
   }
 
   destroy(): void {
