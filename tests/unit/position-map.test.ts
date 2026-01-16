@@ -4,7 +4,7 @@ import {
   findRangeInDOM,
   buildPositionMap,
   getPositionFromMap,
-  type DOMPosition
+  type DOMPosition,
 } from '../../src/content/position-map'
 
 describe('position-map', () => {
@@ -214,7 +214,7 @@ describe('position-map', () => {
 
       it('handles error word replacement scenario', () => {
         // Simulate: "Bonjour\nJ'ai un erreures ici"
-        container.innerHTML = '<div>Bonjour<br>J\'ai un erreures ici</div>'
+        container.innerHTML = "<div>Bonjour<br>J'ai un erreures ici</div>"
         const innerText = container.innerText
 
         // Find 'erreures' position
@@ -229,7 +229,10 @@ describe('position-map', () => {
 
         // Verify the text at that position
         const textNode = startPos!.node
-        const extractedText = textNode.textContent!.substring(startPos!.offset, startPos!.offset + errorLength)
+        const extractedText = textNode.textContent!.substring(
+          startPos!.offset,
+          startPos!.offset + errorLength
+        )
         expect(extractedText).toBe('erreures')
       })
     })

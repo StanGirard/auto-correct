@@ -43,7 +43,7 @@ export const DEFAULT_SETTINGS: Settings = {
   enabled: true,
   language: 'auto',
   apiUrl: 'https://languagetool-autocorrect.fly.dev',
-  personalDictionary: []
+  personalDictionary: [],
 }
 
 export type MessageType =

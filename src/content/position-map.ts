@@ -20,13 +20,13 @@ export interface DOMPosition {
 
 export interface TextNodeInfo {
   node: Text
-  start: number  // Start offset in plaintext
-  end: number    // End offset in plaintext
+  start: number // Start offset in plaintext
+  end: number // End offset in plaintext
 }
 
 interface PositionMapEntry {
   node: Text
-  nodeOffset: number  // Offset within the text node
+  nodeOffset: number // Offset within the text node
 }
 
 /**
@@ -51,32 +51,32 @@ function buildCompletePositionMap(element: HTMLElement): Map<number, PositionMap
 
   // Use TreeWalker to get all text nodes in document order
   // This is the same order that innerText concatenates them
-  const walker = document.createTreeWalker(
-    element,
-    NodeFilter.SHOW_TEXT,
-    {
-      acceptNode: (node) => {
-        // Skip text nodes in hidden elements
-        const parent = node.parentElement
-        if (parent) {
-          const tagName = parent.tagName.toUpperCase()
-          if (tagName === 'SCRIPT' || tagName === 'STYLE' ||
-              tagName === 'NOSCRIPT' || tagName === 'TEMPLATE') {
+  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, {
+    acceptNode: (node) => {
+      // Skip text nodes in hidden elements
+      const parent = node.parentElement
+      if (parent) {
+        const tagName = parent.tagName.toUpperCase()
+        if (
+          tagName === 'SCRIPT' ||
+          tagName === 'STYLE' ||
+          tagName === 'NOSCRIPT' ||
+          tagName === 'TEMPLATE'
+        ) {
+          return NodeFilter.FILTER_REJECT
+        }
+        try {
+          const style = window.getComputedStyle(parent)
+          if (style.display === 'none' || style.visibility === 'hidden') {
             return NodeFilter.FILTER_REJECT
           }
-          try {
-            const style = window.getComputedStyle(parent)
-            if (style.display === 'none' || style.visibility === 'hidden') {
-              return NodeFilter.FILTER_REJECT
-            }
-          } catch {
-            // Ignore style errors
-          }
+        } catch {
+          // Ignore style errors
         }
-        return NodeFilter.FILTER_ACCEPT
       }
-    }
-  )
+      return NodeFilter.FILTER_ACCEPT
+    },
+  })
 
   let innerTextIndex = 0
   let node: Text | null
@@ -87,9 +87,11 @@ function buildCompletePositionMap(element: HTMLElement): Map<number, PositionMap
     for (let i = 0; i < nodeText.length; i++) {
       // Skip any newlines in innerText that don't correspond to this text node
       // These are "virtual" newlines inserted by innerText for block boundaries
-      while (innerTextIndex < innerText.length &&
-             innerText[innerTextIndex] === '\n' &&
-             nodeText[i] !== '\n') {
+      while (
+        innerTextIndex < innerText.length &&
+        innerText[innerTextIndex] === '\n' &&
+        nodeText[i] !== '\n'
+      ) {
         innerTextIndex++ // Skip the virtual newline (it maps to no DOM position)
       }
 
@@ -108,10 +110,7 @@ function buildCompletePositionMap(element: HTMLElement): Map<number, PositionMap
 /**
  * Find the text node and offset for a given plaintext offset
  */
-export function findPositionInDOM(
-  element: HTMLElement,
-  targetOffset: number
-): DOMPosition | null {
+export function findPositionInDOM(element: HTMLElement, targetOffset: number): DOMPosition | null {
   const innerText = element.innerText || ''
 
   // Validate offset
@@ -127,7 +126,7 @@ export function findPositionInDOM(
   if (entry) {
     return {
       node: entry.node,
-      offset: entry.nodeOffset
+      offset: entry.nodeOffset,
     }
   }
 
@@ -147,7 +146,7 @@ export function findPositionInDOM(
     const nodeLength = entry.node.textContent?.length || 0
     return {
       node: entry.node,
-      offset: Math.min(entry.nodeOffset + diff, nodeLength)
+      offset: Math.min(entry.nodeOffset + diff, nodeLength),
     }
   }
 
@@ -157,11 +156,7 @@ export function findPositionInDOM(
 /**
  * Find DOM range for a given plaintext offset and length
  */
-export function findRangeInDOM(
-  element: HTMLElement,
-  offset: number,
-  length: number
-): Range | null {
+export function findRangeInDOM(element: HTMLElement, offset: number, length: number): Range | null {
   const startPos = findPositionInDOM(element, offset)
   if (!startPos) {
     console.warn('[AutoCorrect] Could not find start position for offset:', offset)

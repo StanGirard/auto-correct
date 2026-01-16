@@ -31,7 +31,7 @@ export async function addToDictionary(word: string): Promise<void> {
   const normalized = word.toLowerCase().trim()
   if (!settings.personalDictionary.includes(normalized)) {
     await setSettings({
-      personalDictionary: [...settings.personalDictionary, normalized]
+      personalDictionary: [...settings.personalDictionary, normalized],
     })
   }
 }
@@ -40,6 +40,6 @@ export async function removeFromDictionary(word: string): Promise<void> {
   const settings = await getSettings()
   const normalized = word.toLowerCase().trim()
   await setSettings({
-    personalDictionary: settings.personalDictionary.filter(w => w !== normalized)
+    personalDictionary: settings.personalDictionary.filter((w) => w !== normalized),
   })
 }

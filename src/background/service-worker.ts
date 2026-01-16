@@ -19,14 +19,16 @@ chrome.runtime.onMessage.addListener((message: MessageType, _sender, sendRespons
 // Broadcast settings changes to all tabs
 onSettingsChange((settings: Settings) => {
   chrome.tabs.query({}, (tabs) => {
-    tabs.forEach(tab => {
+    tabs.forEach((tab) => {
       if (tab.id) {
-        chrome.tabs.sendMessage(tab.id, {
-          type: 'SETTINGS_CHANGED',
-          settings,
-        }).catch(() => {
-          // Ignore errors for tabs without content script
-        })
+        chrome.tabs
+          .sendMessage(tab.id, {
+            type: 'SETTINGS_CHANGED',
+            settings,
+          })
+          .catch(() => {
+            // Ignore errors for tabs without content script
+          })
       }
     })
   })

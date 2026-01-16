@@ -6,7 +6,7 @@ const DEBOUNCE_WAIT = 600 // Wait for debounce + API call
 test.describe('AutoCorrect Extension', () => {
   test.beforeEach(async ({ context }) => {
     // Wait a bit for extension to initialize
-    await new Promise(r => setTimeout(r, 1000))
+    await new Promise((r) => setTimeout(r, 1000))
   })
 
   test.describe('Error Detection', () => {
@@ -381,7 +381,7 @@ test.describe('AutoCorrect Extension', () => {
       await page.waitForTimeout(DEBOUNCE_WAIT)
 
       const underlines = page.locator('.autocorrect-underline')
-      if (await underlines.count() > 0) {
+      if ((await underlines.count()) > 0) {
         await underlines.first().click()
         await page.waitForTimeout(200)
 

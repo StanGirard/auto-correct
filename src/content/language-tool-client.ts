@@ -58,7 +58,7 @@ function cleanCache(): void {
   // Limit cache size
   if (cache.size > 100) {
     const keysToDelete = Array.from(cache.keys()).slice(0, 50)
-    keysToDelete.forEach(k => cache.delete(k))
+    keysToDelete.forEach((k) => cache.delete(k))
   }
 }
 
@@ -92,7 +92,13 @@ export async function checkText(
     const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT)
 
     try {
-      console.log('[AutoCorrect] Fetching:', text.substring(0, 30), '... (queue:', requestQueue.length, ')')
+      console.log(
+        '[AutoCorrect] Fetching:',
+        text.substring(0, 30),
+        '... (queue:',
+        requestQueue.length,
+        ')'
+      )
       const response = await fetch(`${apiUrl}/v2/check`, {
         method: 'POST',
         headers: {

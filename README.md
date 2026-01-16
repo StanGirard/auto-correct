@@ -47,6 +47,7 @@
 🔍 **Real-time Detection** — Automatically detects spelling and grammar errors as you type
 
 🎯 **Smart Underlines** — Visual indicators with color coding:
+
 - 🔴 **Red** for spelling errors
 - 🟠 **Orange** for grammar mistakes
 - 🔵 **Blue** for style suggestions
@@ -60,6 +61,7 @@
 🌍 **Multi-language** — Supports French, English, and auto-detection
 
 🔌 **Universal Compatibility** — Works everywhere:
+
 - Standard inputs & textareas
 - Rich text editors (CKEditor, TinyMCE)
 - Contenteditable elements
@@ -174,15 +176,15 @@ Or use the official LanguageTool API at `https://api.languagetool.org`
 
 ## 🧪 Tested Platforms
 
-| Platform | Status | Notes |
-|----------|--------|-------|
-| Standard inputs | ✅ | Full support |
-| Textareas | ✅ | Full support |
-| Contenteditable | ✅ | Full support |
-| CKEditor 5 | ✅ | Zendesk, etc. |
-| Gmail | ✅ | Compose window |
-| Google Docs | ⚠️ | Canvas-based, limited |
-| Notion | ✅ | Works with contenteditable |
+| Platform        | Status | Notes                      |
+| --------------- | ------ | -------------------------- |
+| Standard inputs | ✅     | Full support               |
+| Textareas       | ✅     | Full support               |
+| Contenteditable | ✅     | Full support               |
+| CKEditor 5      | ✅     | Zendesk, etc.              |
+| Gmail           | ✅     | Compose window             |
+| Google Docs     | ⚠️     | Canvas-based, limited      |
+| Notion          | ✅     | Works with contenteditable |
 
 ---
 

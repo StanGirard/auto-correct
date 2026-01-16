@@ -24,19 +24,23 @@ export function setSettings(settings: Settings): void {
 
   // If disabled, clear all underlines
   if (!settings.enabled) {
-    document.querySelectorAll('.autocorrect-overlay').forEach(el => el.remove())
+    document.querySelectorAll('.autocorrect-overlay').forEach((el) => el.remove())
   }
 
   // Update dictionary for all managed fields
-  document.querySelectorAll('input, textarea, [contenteditable]:not([contenteditable="false"])').forEach(el => {
-    const field = managedFields.get(el)
-    if (field) {
-      field.renderer.setDictionary(settings.personalDictionary || [])
-    }
-  })
+  document
+    .querySelectorAll('input, textarea, [contenteditable]:not([contenteditable="false"])')
+    .forEach((el) => {
+      const field = managedFields.get(el)
+      if (field) {
+        field.renderer.setDictionary(settings.personalDictionary || [])
+      }
+    })
 }
 
-function isEditableElement(element: Element): element is HTMLInputElement | HTMLTextAreaElement | HTMLElement {
+function isEditableElement(
+  element: Element
+): element is HTMLInputElement | HTMLTextAreaElement | HTMLElement {
   if (element instanceof HTMLInputElement) {
     const type = element.type.toLowerCase()
     // Skip password, hidden, and other non-text inputs
@@ -83,7 +87,10 @@ function getTextContent(element: HTMLInputElement | HTMLTextAreaElement | HTMLEl
 }
 
 // Get text around cursor position (for large documents, only check nearby text)
-function getTextAroundCursor(element: HTMLInputElement | HTMLTextAreaElement | HTMLElement, maxChars: number = 500): { text: string; offset: number } {
+function getTextAroundCursor(
+  element: HTMLInputElement | HTMLTextAreaElement | HTMLElement,
+  maxChars: number = 500
+): { text: string; offset: number } {
   const fullText = getTextContent(element)
 
   // For small texts, return everything
@@ -131,7 +138,7 @@ function getTextAroundCursor(element: HTMLInputElement | HTMLTextAreaElement | H
 
   return {
     text: fullText.substring(start, end),
-    offset: start
+    offset: start,
   }
 }
 
@@ -152,18 +159,24 @@ function setTextContent(
     elementType: element.tagName,
     matchedText: `"${matchedText}"`,
     contextBefore: `"${fullText.substring(Math.max(0, offset - 5), offset)}"`,
-    contextAfter: `"${fullText.substring(offset + length, offset + length + 5)}"`
+    contextAfter: `"${fullText.substring(offset + length, offset + length + 5)}"`,
   })
 
   // Warn if the matched text doesn't look right (potential offset issue)
   if (matchedText.length !== length) {
-    console.warn('[AutoCorrect] WARNING: Matched text length mismatch!',
-      { expected: length, actual: matchedText.length, matchedText: `"${matchedText}"` })
+    console.warn('[AutoCorrect] WARNING: Matched text length mismatch!', {
+      expected: length,
+      actual: matchedText.length,
+      matchedText: `"${matchedText}"`,
+    })
   }
 
   if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
     const text = element.value
-    console.log('[AutoCorrect] Input/Textarea replacement:', { textLength: text.length, beforeOffset: offset })
+    console.log('[AutoCorrect] Input/Textarea replacement:', {
+      textLength: text.length,
+      beforeOffset: offset,
+    })
     const before = text.substring(0, offset)
     const after = text.substring(offset + length)
     element.value = before + replacement + after
@@ -191,16 +204,21 @@ function setTextContent(
     console.log('[AutoCorrect] Range created:', {
       rangeText: `"${rangeText}"`,
       expectedText: `"${matchedText}"`,
-      matches: rangeText === matchedText
+      matches: rangeText === matchedText,
     })
 
     if (rangeText !== matchedText) {
-      console.warn('[AutoCorrect] WARNING: Range text mismatch! Expected:', `"${matchedText}"`, 'Got:', `"${rangeText}"`)
+      console.warn(
+        '[AutoCorrect] WARNING: Range text mismatch! Expected:',
+        `"${matchedText}"`,
+        'Got:',
+        `"${rangeText}"`
+      )
     }
 
     // Check if this is CKEditor
-    const isCKEditor = element.classList.contains('ck-editor__editable') ||
-                       element.classList.contains('ck-content')
+    const isCKEditor =
+      element.classList.contains('ck-editor__editable') || element.classList.contains('ck-content')
 
     if (isCKEditor) {
       // For CKEditor: use clipboard paste simulation
@@ -226,7 +244,7 @@ function setTextContent(
             const pasteEvent = new ClipboardEvent('paste', {
               bubbles: true,
               cancelable: true,
-              clipboardData: new DataTransfer()
+              clipboardData: new DataTransfer(),
             })
             pasteEvent.clipboardData?.setData('text/plain', replacement)
 
@@ -259,7 +277,7 @@ function setTextContent(
             console.log('[AutoCorrect] Selection set:', {
               selectedText: `"${selectedText}"`,
               expectedText: `"${matchedText}"`,
-              matches: selectedText === matchedText
+              matches: selectedText === matchedText,
             })
 
             // Use insertText which is supported by modern browsers
@@ -281,7 +299,9 @@ function setTextContent(
     }
 
     // Trigger input event to notify the editor
-    element.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: replacement }))
+    element.dispatchEvent(
+      new InputEvent('input', { bubbles: true, inputType: 'insertText', data: replacement })
+    )
   }
 }
 
@@ -318,15 +338,25 @@ async function handleInput(field: ManagedField): Promise<void> {
 
   // For large documents, only check text around cursor
   const { text: textToCheck, offset: textOffset } = getTextAroundCursor(field.element, 500)
-  console.log('[AutoCorrect] Checking text:', textToCheck.substring(0, 50), '... (', textToCheck.length, 'of', fullText.length, 'chars, offset:', textOffset, ')')
+  console.log(
+    '[AutoCorrect] Checking text:',
+    textToCheck.substring(0, 50),
+    '... (',
+    textToCheck.length,
+    'of',
+    fullText.length,
+    'chars, offset:',
+    textOffset,
+    ')'
+  )
 
   console.log('[AutoCorrect] Calling API...')
   const matches = await checkText(textToCheck, currentSettings.language, currentSettings.apiUrl)
 
   // Adjust match offsets to account for the text offset
-  const adjustedMatches = matches.map(match => ({
+  const adjustedMatches = matches.map((match) => ({
     ...match,
-    offset: match.offset + textOffset
+    offset: match.offset + textOffset,
   }))
 
   console.log('[AutoCorrect] Got', adjustedMatches.length, 'matches')
@@ -339,7 +369,11 @@ function attachToField(element: HTMLInputElement | HTMLTextAreaElement | HTMLEle
     return
   }
 
-  console.log('[AutoCorrect] Attaching to field:', element.tagName, element.className?.substring?.(0, 50))
+  console.log(
+    '[AutoCorrect] Attaching to field:',
+    element.tagName,
+    element.className?.substring?.(0, 50)
+  )
   const renderer = new UnderlineRenderer(element)
 
   const field: ManagedField = {
@@ -416,24 +450,36 @@ function detachFromField(element: Element): void {
 
 function scanForFields(): void {
   // Find all editable elements
-  const inputs = document.querySelectorAll('input[type="text"], input[type="search"], input[type="email"], input[type="url"], input[type="tel"], input:not([type])')
+  const inputs = document.querySelectorAll(
+    'input[type="text"], input[type="search"], input[type="email"], input[type="url"], input[type="tel"], input:not([type])'
+  )
   const textareas = document.querySelectorAll('textarea')
   // Match any contenteditable value (true, "", plaintext-only, etc.)
-  const contentEditables = document.querySelectorAll('[contenteditable]:not([contenteditable="false"])')
+  const contentEditables = document.querySelectorAll(
+    '[contenteditable]:not([contenteditable="false"])'
+  )
 
-  console.log('[AutoCorrect] Scan found:', inputs.length, 'inputs,', textareas.length, 'textareas,', contentEditables.length, 'contenteditables')
+  console.log(
+    '[AutoCorrect] Scan found:',
+    inputs.length,
+    'inputs,',
+    textareas.length,
+    'textareas,',
+    contentEditables.length,
+    'contenteditables'
+  )
 
-  inputs.forEach(el => {
+  inputs.forEach((el) => {
     if (isEditableElement(el)) {
       attachToField(el)
     }
   })
 
-  textareas.forEach(el => {
+  textareas.forEach((el) => {
     attachToField(el as HTMLTextAreaElement)
   })
 
-  contentEditables.forEach(el => {
+  contentEditables.forEach((el) => {
     if (el instanceof HTMLElement) {
       attachToField(el)
     }
@@ -446,31 +492,37 @@ export function init(): void {
 
   // Watch for new elements AND attribute changes (for editors like CKEditor)
   const observer = new MutationObserver((mutations) => {
-    mutations.forEach(mutation => {
+    mutations.forEach((mutation) => {
       // Handle attribute changes (contenteditable added dynamically)
       if (mutation.type === 'attributes' && mutation.attributeName === 'contenteditable') {
         const target = mutation.target as Element
         if (target instanceof HTMLElement && isEditableElement(target)) {
-          console.log('[AutoCorrect] Contenteditable attribute changed on:', target.tagName, target.className?.substring?.(0, 50))
+          console.log(
+            '[AutoCorrect] Contenteditable attribute changed on:',
+            target.tagName,
+            target.className?.substring?.(0, 50)
+          )
           attachToField(target)
         }
       }
 
-      mutation.addedNodes.forEach(node => {
+      mutation.addedNodes.forEach((node) => {
         if (node instanceof Element) {
           if (isEditableElement(node)) {
             attachToField(node)
           }
           // Also check children - use broader selector
-          node.querySelectorAll('input, textarea, [contenteditable]:not([contenteditable="false"])').forEach(el => {
-            if (isEditableElement(el)) {
-              attachToField(el)
-            }
-          })
+          node
+            .querySelectorAll('input, textarea, [contenteditable]:not([contenteditable="false"])')
+            .forEach((el) => {
+              if (isEditableElement(el)) {
+                attachToField(el)
+              }
+            })
         }
       })
 
-      mutation.removedNodes.forEach(node => {
+      mutation.removedNodes.forEach((node) => {
         if (node instanceof Element) {
           detachFromField(node)
           node.querySelectorAll('input, textarea, [contenteditable]').forEach(detachFromField)
@@ -501,10 +553,12 @@ function setupMessageListener(): void {
         type: 'MATCHES_RESPONSE',
         matches: activeField?.currentMatches || [],
         textLength: activeField ? getTextContent(activeField.element).length : 0,
-        fieldInfo: activeField ? {
-          tagName: activeField.element.tagName.toLowerCase(),
-          hasContent: getTextContent(activeField.element).trim().length > 0,
-        } : null,
+        fieldInfo: activeField
+          ? {
+              tagName: activeField.element.tagName.toLowerCase(),
+              hasContent: getTextContent(activeField.element).trim().length > 0,
+            }
+          : null,
       }
       sendResponse(response)
       return true
@@ -514,7 +568,12 @@ function setupMessageListener(): void {
       const suggestionMessage = message as ApplySuggestionMessage
       if (activeField && activeField.currentMatches[suggestionMessage.matchIndex]) {
         const match = activeField.currentMatches[suggestionMessage.matchIndex]
-        setTextContent(activeField.element, match.offset, match.length, suggestionMessage.replacement)
+        setTextContent(
+          activeField.element,
+          match.offset,
+          match.length,
+          suggestionMessage.replacement
+        )
         sendResponse({ type: 'SUGGESTION_APPLIED', success: true })
       } else {
         sendResponse({ type: 'SUGGESTION_APPLIED', success: false })

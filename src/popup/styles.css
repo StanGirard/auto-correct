@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 /* Import distinctive fonts - Fraunces for display, DM Sans for body */
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,400&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap');
@@ -10,23 +10,23 @@
 
 :root {
   /* Core palette - warm, sophisticated */
-  --ac-cream: #FAF8F5;
-  --ac-paper: #FFFFFF;
-  --ac-ink: #1A1612;
-  --ac-ink-soft: #4A4540;
-  --ac-ink-muted: #8A857D;
-  --ac-border: #E8E4DE;
-  --ac-border-soft: #F2EFEA;
+  --ac-cream: #faf8f5;
+  --ac-paper: #ffffff;
+  --ac-ink: #1a1612;
+  --ac-ink-soft: #4a4540;
+  --ac-ink-muted: #8a857d;
+  --ac-border: #e8e4de;
+  --ac-border-soft: #f2efea;
 
   /* Accent colors - warm, distinctive */
-  --ac-coral: #E85D4C;
-  --ac-coral-soft: #FEF2F0;
-  --ac-amber: #D4940A;
-  --ac-amber-soft: #FDF8EC;
-  --ac-sage: #4A9B7F;
-  --ac-sage-soft: #F0F7F4;
-  --ac-indigo: #5B6AD0;
-  --ac-indigo-soft: #F3F4FC;
+  --ac-coral: #e85d4c;
+  --ac-coral-soft: #fef2f0;
+  --ac-amber: #d4940a;
+  --ac-amber-soft: #fdf8ec;
+  --ac-sage: #4a9b7f;
+  --ac-sage-soft: #f0f7f4;
+  --ac-indigo: #5b6ad0;
+  --ac-indigo-soft: #f3f4fc;
 
   /* Semantic colors */
   --ac-spelling: var(--ac-coral);
@@ -62,22 +62,22 @@
 /* Dark mode - rich, warm dark */
 @media (prefers-color-scheme: dark) {
   :root {
-    --ac-cream: #1A1612;
+    --ac-cream: #1a1612;
     --ac-paper: #242019;
-    --ac-ink: #FAF8F5;
-    --ac-ink-soft: #C9C4BC;
-    --ac-ink-muted: #7A756D;
-    --ac-border: #3A352D;
-    --ac-border-soft: #2A2620;
+    --ac-ink: #faf8f5;
+    --ac-ink-soft: #c9c4bc;
+    --ac-ink-muted: #7a756d;
+    --ac-border: #3a352d;
+    --ac-border-soft: #2a2620;
 
-    --ac-coral: #F08070;
-    --ac-coral-soft: #2D201E;
-    --ac-amber: #E8A820;
-    --ac-amber-soft: #2A2418;
-    --ac-sage: #5CB896;
-    --ac-sage-soft: #1C2A24;
-    --ac-indigo: #7B8AE0;
-    --ac-indigo-soft: #1E2030;
+    --ac-coral: #f08070;
+    --ac-coral-soft: #2d201e;
+    --ac-amber: #e8a820;
+    --ac-amber-soft: #2a2418;
+    --ac-sage: #5cb896;
+    --ac-sage-soft: #1c2a24;
+    --ac-indigo: #7b8ae0;
+    --ac-indigo-soft: #1e2030;
 
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
     --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.2);
@@ -89,7 +89,8 @@
    BASE STYLES
    ═══════════════════════════════════════════════════════════════════ */
 
-html, body {
+html,
+body {
   width: 380px;
   min-height: 200px;
   max-height: 600px;
@@ -133,8 +134,12 @@ body {
    ═══════════════════════════════════════════════════════════════════ */
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes slideUp {
@@ -171,13 +176,22 @@ body {
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
 }
 
 @keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 
 @keyframes scoreReveal {
@@ -206,11 +220,21 @@ body {
 }
 
 /* Staggered entrance for cards */
-.stagger-1 { animation-delay: 0ms; }
-.stagger-2 { animation-delay: 50ms; }
-.stagger-3 { animation-delay: 100ms; }
-.stagger-4 { animation-delay: 150ms; }
-.stagger-5 { animation-delay: 200ms; }
+.stagger-1 {
+  animation-delay: 0ms;
+}
+.stagger-2 {
+  animation-delay: 50ms;
+}
+.stagger-3 {
+  animation-delay: 100ms;
+}
+.stagger-4 {
+  animation-delay: 150ms;
+}
+.stagger-5 {
+  animation-delay: 200ms;
+}
 
 /* ═══════════════════════════════════════════════════════════════════
    UTILITY CLASSES
@@ -246,12 +270,17 @@ body {
 /* Focus styles */
 .focus-ring:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px var(--ac-paper), 0 0 0 4px var(--ac-indigo);
+  box-shadow:
+    0 0 0 2px var(--ac-paper),
+    0 0 0 4px var(--ac-indigo);
 }
 
 /* Smooth transitions - applied selectively */
 .transition-colors {
-  transition: color 150ms var(--ease-out), background-color 150ms var(--ease-out), border-color 150ms var(--ease-out);
+  transition:
+    color 150ms var(--ease-out),
+    background-color 150ms var(--ease-out),
+    border-color 150ms var(--ease-out);
 }
 
 .transition-transform {

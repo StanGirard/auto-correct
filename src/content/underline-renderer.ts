@@ -6,7 +6,7 @@ interface TextPosition {
   y: number
   width: number
   height: number
-  matchIndex: number  // Index of the match this position belongs to
+  matchIndex: number // Index of the match this position belongs to
 }
 
 interface VisibleRange {
@@ -21,9 +21,11 @@ interface TooltipCallbacks {
 
 // Feature detection for CSS Custom Highlights API
 const supportsCustomHighlights = (): boolean => {
-  return typeof CSS !== 'undefined' &&
-         'highlights' in CSS &&
-         typeof (window as unknown as { Highlight?: typeof Highlight }).Highlight !== 'undefined'
+  return (
+    typeof CSS !== 'undefined' &&
+    'highlights' in CSS &&
+    typeof (window as unknown as { Highlight?: typeof Highlight }).Highlight !== 'undefined'
+  )
 }
 
 export class UnderlineRenderer {
@@ -48,7 +50,9 @@ export class UnderlineRenderer {
 
     // Only use CSS Custom Highlights for contenteditable elements (not inputs/textareas)
     // Inputs/textareas don't support Range selection properly for highlights
-    const isContentEditable = !(element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement)
+    const isContentEditable = !(
+      element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement
+    )
     this.useCustomHighlights = isContentEditable && supportsCustomHighlights()
 
     if (this.useCustomHighlights) {
@@ -99,7 +103,7 @@ export class UnderlineRenderer {
   }
 
   setDictionary(words: string[]): void {
-    this.personalDictionary = new Set(words.map(w => w.toLowerCase()))
+    this.personalDictionary = new Set(words.map((w) => w.toLowerCase()))
   }
 
   private createOverlay(): void {
@@ -623,10 +627,14 @@ export class UnderlineRenderer {
       this.updatePosition()
       this.hideTooltip()
     })
-    window.addEventListener('scroll', () => {
-      this.updatePosition()
-      this.hideTooltip()
-    }, true)
+    window.addEventListener(
+      'scroll',
+      () => {
+        this.updatePosition()
+        this.hideTooltip()
+      },
+      true
+    )
     window.addEventListener('resize', () => {
       this.updatePosition()
       this.hideTooltip()
@@ -656,7 +664,7 @@ export class UnderlineRenderer {
     this.hideTooltip()
 
     // Filter ignored matches and dictionary words
-    const activeMatches = matches.filter(match => {
+    const activeMatches = matches.filter((match) => {
       const matchKey = `${match.offset}-${match.length}-${match.rule.id}`
       if (this.ignoredMatches.has(matchKey)) return false
 
@@ -667,7 +675,13 @@ export class UnderlineRenderer {
       return true
     })
 
-    console.log('[AutoCorrect] Rendering', activeMatches.length, 'matches (useCustomHighlights:', this.useCustomHighlights, ')')
+    console.log(
+      '[AutoCorrect] Rendering',
+      activeMatches.length,
+      'matches (useCustomHighlights:',
+      this.useCustomHighlights,
+      ')'
+    )
 
     if (activeMatches.length === 0) {
       this.clearHighlights()
@@ -685,11 +699,11 @@ export class UnderlineRenderer {
 
     // Clear existing underlines (keep style)
     const existingUnderlines = this.shadowRoot.querySelectorAll('.error-highlight')
-    existingUnderlines.forEach(el => el.remove())
+    existingUnderlines.forEach((el) => el.remove())
 
     // For optimization: only render errors in visible range + buffer
     const visibleRange = this.getVisibleTextRange(text)
-    const visibleMatches = activeMatches.filter(match => {
+    const visibleMatches = activeMatches.filter((match) => {
       const matchEnd = match.offset + match.length
       // Include errors that overlap with visible range (with 500 char buffer)
       const bufferStart = Math.max(0, visibleRange.startOffset - 500)
@@ -704,7 +718,7 @@ export class UnderlineRenderer {
     let renderedCount = 0
     positions.forEach((pos) => {
       const match = visibleMatches[pos.matchIndex]
-      if (!match) return  // Safety check
+      if (!match) return // Safety check
 
       // Store the index in the full matches array for reference
       const originalIndex = this.currentMatches.indexOf(match)
@@ -746,7 +760,7 @@ export class UnderlineRenderer {
     const grammarRanges: Range[] = []
     const styleRanges: Range[] = []
 
-    matches.forEach(match => {
+    matches.forEach((match) => {
       try {
         const startPos = getPositionFromMap(positionMap, match.offset)
         if (!startPos) return
@@ -789,7 +803,7 @@ export class UnderlineRenderer {
     console.log('[AutoCorrect] CSS Custom Highlights rendered:', {
       spelling: spellingRanges.length,
       grammar: grammarRanges.length,
-      style: styleRanges.length
+      style: styleRanges.length,
     })
 
     // Still need overlay for click handlers (tooltip interaction)
@@ -802,7 +816,7 @@ export class UnderlineRenderer {
 
     // Clear existing click targets
     const existingTargets = this.shadowRoot.querySelectorAll('.click-target')
-    existingTargets.forEach(el => el.remove())
+    existingTargets.forEach((el) => el.remove())
 
     const positions = this.calculatePositions(matches, text)
 
@@ -849,7 +863,7 @@ export class UnderlineRenderer {
     // Clear overlay underlines
     if (this.shadowRoot) {
       const existingUnderlines = this.shadowRoot.querySelectorAll('.error-highlight, .click-target')
-      existingUnderlines.forEach(el => el.remove())
+      existingUnderlines.forEach((el) => el.remove())
     }
   }
 
@@ -918,7 +932,12 @@ export class UnderlineRenderer {
     return { name: 'Style', class: 'style' }
   }
 
-  private showTooltip(match: LanguageToolMatch, clickX: number, clickY: number, pos: TextPosition): void {
+  private showTooltip(
+    match: LanguageToolMatch,
+    clickX: number,
+    clickY: number,
+    _pos: TextPosition
+  ): void {
     this.hideTooltip()
 
     if (!this.tooltipShadowRoot) return
@@ -960,9 +979,13 @@ export class UnderlineRenderer {
       <div class="tooltip-body">
         <p class="tooltip-message">${match.message}</p>
         <div class="tooltip-suggestions">
-          ${match.replacements.slice(0, 3).map((r, i) =>
-            `<button class="suggestion-btn${i > 0 ? ' secondary' : ''}" data-replacement="${this.escapeHtml(r.value)}">${this.escapeHtml(r.value)}</button>`
-          ).join('')}
+          ${match.replacements
+            .slice(0, 3)
+            .map(
+              (r, i) =>
+                `<button class="suggestion-btn${i > 0 ? ' secondary' : ''}" data-replacement="${this.escapeHtml(r.value)}">${this.escapeHtml(r.value)}</button>`
+            )
+            .join('')}
         </div>
         <div class="tooltip-actions">
           <button class="action-btn ignore-btn">
@@ -987,7 +1010,7 @@ export class UnderlineRenderer {
       this.hideTooltip()
     })
 
-    this.tooltip.querySelectorAll('.suggestion-btn').forEach(btn => {
+    this.tooltip.querySelectorAll('.suggestion-btn').forEach((btn) => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation()
         const replacement = (e.target as HTMLElement).dataset.replacement || ''
@@ -1145,7 +1168,10 @@ export class UnderlineRenderer {
     return positions
   }
 
-  private calculateContentEditablePositions(matches: LanguageToolMatch[], text: string): TextPosition[] {
+  private calculateContentEditablePositions(
+    matches: LanguageToolMatch[],
+    _text: string
+  ): TextPosition[] {
     const positions: TextPosition[] = []
     const element = this.element
     const elementRect = element.getBoundingClientRect()
@@ -1165,7 +1191,10 @@ export class UnderlineRenderer {
 
         const endPos = getPositionFromMap(positionMap, match.offset + match.length - 1)
         if (!endPos) {
-          console.log('[AutoCorrect] Could not find end position for offset:', match.offset + match.length - 1)
+          console.log(
+            '[AutoCorrect] Could not find end position for offset:',
+            match.offset + match.length - 1
+          )
           return
         }
 
@@ -1177,7 +1206,7 @@ export class UnderlineRenderer {
         const rects = range.getClientRects()
         // Multi-rect support: loop through all rects to handle word-wrapped errors
         // Each rect represents a separate line fragment of the same error
-        Array.from(rects).forEach(rect => {
+        Array.from(rects).forEach((rect) => {
           positions.push({
             x: rect.left - elementRect.left + element.scrollLeft,
             y: rect.top - elementRect.top + element.scrollTop,
