@@ -7,6 +7,7 @@ This document explains what premium features would bring to the self-hosted Lang
 **Premium features are NOT available for self-hosted instances.**
 
 According to Daniel Naber (LanguageTool maintainer):
+
 > "The Premium version is only available in the cloud and - for larger customers with 250+ users - as an on-premise version."
 
 The `premium: false` flag in the server logs is expected behavior for self-hosted instances.
@@ -23,11 +24,11 @@ The `premium: false` flag in the server logs is expected behavior for self-hoste
 
 ### 2. Character Limits
 
-| Version | Limit per Request |
-|---------|-------------------|
-| Free (cloud) | 20,000 characters |
+| Version         | Limit per Request         |
+| --------------- | ------------------------- |
+| Free (cloud)    | 20,000 characters         |
 | Premium (cloud) | 60,000-150,000 characters |
-| Self-hosted | Unlimited (configurable) |
+| Self-hosted     | Unlimited (configurable)  |
 
 ### 3. Enhanced Picky Mode
 
@@ -54,17 +55,18 @@ The `premium: false` flag in the server logs is expected behavior for self-hoste
 
 **Proofreading API** (https://languagetool.org/proofreading-api)
 
-| Daily Calls | Price |
-|-------------|-------|
-| 100 | ~5/month |
-| 250 | ~10/month |
-| 500 | ~15/month |
-| 1,000 | ~25/month |
+| Daily Calls | Price     |
+| ----------- | --------- |
+| 100         | ~5/month  |
+| 250         | ~10/month |
+| 500         | ~15/month |
+| 1,000       | ~25/month |
 
 - Max 60,000 characters/request
 - Servers in Germany, GDPR compliant
 
 **Request parameters:**
+
 ```
 username: "your-email@example.com"
 apiKey: "your-api-key"
@@ -119,8 +121,8 @@ To switch from self-hosted to LanguageTool cloud API with premium:
      language: language,
      username: 'your-email@example.com',
      apiKey: 'your-api-key',
-     level: 'picky'  // optional
-   });
+     level: 'picky', // optional
+   })
    ```
 
 ---
