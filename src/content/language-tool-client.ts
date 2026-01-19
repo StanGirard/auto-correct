@@ -77,7 +77,6 @@ export async function checkText(
   // Check cache first
   const cached = cache.get(cacheKey)
   if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-    console.log('[AutoCorrect] Cache hit for:', text.substring(0, 30))
     return cached.response.matches
   }
 
@@ -92,13 +91,6 @@ export async function checkText(
     const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT)
 
     try {
-      console.log(
-        '[AutoCorrect] Fetching:',
-        text.substring(0, 30),
-        '... (queue:',
-        requestQueue.length,
-        ')'
-      )
       const response = await fetch(`${apiUrl}/v2/check`, {
         method: 'POST',
         headers: {
@@ -127,7 +119,6 @@ export async function checkText(
         timestamp: Date.now(),
       })
 
-      console.log('[AutoCorrect] Got', data.matches.length, 'matches for:', text.substring(0, 30))
       return data.matches
     } catch (error) {
       clearTimeout(timeoutId)

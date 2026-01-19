@@ -56,7 +56,6 @@ export class UnderlineRenderer {
     this.useCustomHighlights = isContentEditable && supportsCustomHighlights()
 
     if (this.useCustomHighlights) {
-      console.log('[AutoCorrect] Using CSS Custom Highlights API (modern path)')
       this.setupCustomHighlightStyles()
     }
   }
@@ -675,14 +674,6 @@ export class UnderlineRenderer {
       return true
     })
 
-    console.log(
-      '[AutoCorrect] Rendering',
-      activeMatches.length,
-      'matches (useCustomHighlights:',
-      this.useCustomHighlights,
-      ')'
-    )
-
     if (activeMatches.length === 0) {
       this.clearHighlights()
       return
@@ -711,9 +702,7 @@ export class UnderlineRenderer {
       return matchEnd > bufferStart && match.offset < bufferEnd
     })
 
-    console.log('[AutoCorrect] Visible matches:', visibleMatches.length, 'range:', visibleRange)
     const positions = this.calculatePositions(visibleMatches, text)
-    console.log('[AutoCorrect] Positions calculated:', positions)
 
     let renderedCount = 0
     positions.forEach((pos) => {
@@ -745,7 +734,6 @@ export class UnderlineRenderer {
       this.shadowRoot!.appendChild(underline)
       renderedCount++
     })
-    console.log('[AutoCorrect] Rendered', renderedCount, 'underlines (multi-rect support enabled)')
   }
 
   private renderWithCustomHighlights(matches: LanguageToolMatch[], text: string): void {
@@ -781,8 +769,8 @@ export class UnderlineRenderer {
         } else {
           styleRanges.push(range)
         }
-      } catch (e) {
-        console.log('[AutoCorrect] CSS Highlights range error:', e)
+      } catch {
+        // Range error - skip this match
       }
     })
 
@@ -799,12 +787,6 @@ export class UnderlineRenderer {
     if (styleRanges.length > 0) {
       cssHighlights.set('autocorrect-style', new HighlightClass(...styleRanges))
     }
-
-    console.log('[AutoCorrect] CSS Custom Highlights rendered:', {
-      spelling: spellingRanges.length,
-      grammar: grammarRanges.length,
-      style: styleRanges.length,
-    })
 
     // Still need overlay for click handlers (tooltip interaction)
     // Render invisible click targets on the overlay
@@ -1014,7 +996,6 @@ export class UnderlineRenderer {
       btn.addEventListener('click', (e) => {
         e.stopPropagation()
         const replacement = (e.target as HTMLElement).dataset.replacement || ''
-        console.log('[AutoCorrect] Suggestion clicked:', replacement)
         this.callbacks?.onReplace(match, replacement)
         this.hideTooltip()
       })
@@ -1185,16 +1166,11 @@ export class UnderlineRenderer {
       try {
         const startPos = getPositionFromMap(positionMap, match.offset)
         if (!startPos) {
-          console.log('[AutoCorrect] Could not find start position for offset:', match.offset)
           return
         }
 
         const endPos = getPositionFromMap(positionMap, match.offset + match.length - 1)
         if (!endPos) {
-          console.log(
-            '[AutoCorrect] Could not find end position for offset:',
-            match.offset + match.length - 1
-          )
           return
         }
 
@@ -1215,8 +1191,8 @@ export class UnderlineRenderer {
             matchIndex,
           })
         })
-      } catch (e) {
-        console.log('[AutoCorrect] Position calculation error:', e)
+      } catch {
+        // Position calculation error - skip this match
       }
     })
 

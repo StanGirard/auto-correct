@@ -1,16 +1,16 @@
 {
   "../../../../@crx/manifest": {
-    "file": "assets/crx-manifest.js-CG5TJXp4.js",
+    "file": "assets/crx-manifest.js-BAtCtIcQ.js",
     "name": "crx-manifest.js",
     "src": "../../../../@crx/manifest",
     "isEntry": true
   },
-  "_index.ts-loader-HKQ8FkKi.js": {
-    "file": "assets/index.ts-loader-HKQ8FkKi.js",
-    "src": "_index.ts-loader-HKQ8FkKi.js"
+  "_index.ts-loader-CUzln2gI.js": {
+    "file": "assets/index.ts-loader-CUzln2gI.js",
+    "src": "_index.ts-loader-CUzln2gI.js"
   },
-  "_language-tool-client-B4BnbzYn.js": {
-    "file": "assets/language-tool-client-B4BnbzYn.js",
+  "_language-tool-client-yq55x0Im.js": {
+    "file": "assets/language-tool-client-yq55x0Im.js",
     "name": "language-tool-client"
   },
   "_storage-Dq_-2h6f.js": {
@@ -27,23 +27,23 @@
     ]
   },
   "src/content/index.ts": {
-    "file": "assets/index.ts-CcV3m6xm.js",
+    "file": "assets/index.ts-BjaWE3VF.js",
     "name": "index.ts",
     "src": "src/content/index.ts",
     "isEntry": true,
     "imports": [
       "_storage-Dq_-2h6f.js",
-      "_language-tool-client-B4BnbzYn.js"
+      "_language-tool-client-yq55x0Im.js"
     ]
   },
   "src/popup/index.html": {
-    "file": "assets/popup-D1m6jiJE.js",
+    "file": "assets/popup-DY--rRxM.js",
     "name": "popup",
     "src": "src/popup/index.html",
     "isEntry": true,
     "imports": [
       "_storage-Dq_-2h6f.js",
-      "_language-tool-client-B4BnbzYn.js"
+      "_language-tool-client-yq55x0Im.js"
     ],
     "css": [
       "assets/popup-XxxMMfzV.css"

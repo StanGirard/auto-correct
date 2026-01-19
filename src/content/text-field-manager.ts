@@ -152,16 +152,6 @@ function setTextContent(
   const fullText = getTextContent(element)
   const matchedText = fullText.substring(offset, offset + length)
 
-  console.log('[AutoCorrect] setTextContent called:', {
-    offset,
-    length,
-    replacement,
-    elementType: element.tagName,
-    matchedText: `"${matchedText}"`,
-    contextBefore: `"${fullText.substring(Math.max(0, offset - 5), offset)}"`,
-    contextAfter: `"${fullText.substring(offset + length, offset + length + 5)}"`,
-  })
-
   // Warn if the matched text doesn't look right (potential offset issue)
   if (matchedText.length !== length) {
     console.warn('[AutoCorrect] WARNING: Matched text length mismatch!', {
@@ -173,10 +163,6 @@ function setTextContent(
 
   if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
     const text = element.value
-    console.log('[AutoCorrect] Input/Textarea replacement:', {
-      textLength: text.length,
-      beforeOffset: offset,
-    })
     const before = text.substring(0, offset)
     const after = text.substring(offset + length)
     element.value = before + replacement + after
@@ -187,11 +173,8 @@ function setTextContent(
 
     // Trigger input event to re-analyze
     element.dispatchEvent(new Event('input', { bubbles: true }))
-    console.log('[AutoCorrect] Replacement done for input/textarea')
   } else {
     // For contenteditable elements (including CKEditor, etc.)
-    console.log('[AutoCorrect] Contenteditable replacement at offset:', offset, 'length:', length)
-
     // Use findRangeInDOM for reliable DOM position finding (TreeWalker-based like LanguageTool)
     const range = findRangeInDOM(element as HTMLElement, offset, length)
     if (!range) {
@@ -201,11 +184,6 @@ function setTextContent(
 
     // Verify the selection matches expected text
     const rangeText = range.toString()
-    console.log('[AutoCorrect] Range created:', {
-      rangeText: `"${rangeText}"`,
-      expectedText: `"${matchedText}"`,
-      matches: rangeText === matchedText,
-    })
 
     if (rangeText !== matchedText) {
       console.warn(
@@ -222,8 +200,6 @@ function setTextContent(
 
     if (isCKEditor) {
       // For CKEditor: use clipboard paste simulation
-      console.log('[AutoCorrect] CKEditor detected, using paste simulation')
-
       const selection = window.getSelection()
       if (selection) {
         selection.removeAllRanges()
@@ -238,7 +214,6 @@ function setTextContent(
 
             // Write to clipboard and trigger paste
             await navigator.clipboard.writeText(replacement)
-            console.log('[AutoCorrect] Clipboard written, triggering paste')
 
             // Create and dispatch paste event
             const pasteEvent = new ClipboardEvent('paste', {
@@ -249,7 +224,6 @@ function setTextContent(
             pasteEvent.clipboardData?.setData('text/plain', replacement)
 
             const pasteHandled = element.dispatchEvent(pasteEvent)
-            console.log('[AutoCorrect] Paste event dispatched, handled:', pasteHandled)
 
             // If paste didn't work, try execCommand as fallback
             if (!pasteHandled || pasteEvent.defaultPrevented) {
@@ -273,21 +247,11 @@ function setTextContent(
             selection.removeAllRanges()
             selection.addRange(range)
 
-            const selectedText = selection.toString()
-            console.log('[AutoCorrect] Selection set:', {
-              selectedText: `"${selectedText}"`,
-              expectedText: `"${matchedText}"`,
-              matches: selectedText === matchedText,
-            })
-
             // Use insertText which is supported by modern browsers
             const success = document.execCommand('insertText', false, replacement)
 
-            if (success) {
-              console.log('[AutoCorrect] Replacement done via execCommand')
-            } else {
+            if (!success) {
               // Fallback: try delete + insertText
-              console.log('[AutoCorrect] execCommand failed, trying delete + insertText')
               document.execCommand('delete', false)
               document.execCommand('insertText', false, replacement)
             }
@@ -317,7 +281,6 @@ function debounce(fn: () => void, ms: number, field: ManagedField): void {
 
 async function handleInput(field: ManagedField): Promise<void> {
   if (!currentSettings?.enabled || !currentSettings?.apiUrl) {
-    console.log('[AutoCorrect] Disabled or no API URL')
     return
   }
 
@@ -325,7 +288,6 @@ async function handleInput(field: ManagedField): Promise<void> {
 
   // Don't re-check if text hasn't changed
   if (fullText === field.lastText) {
-    console.log('[AutoCorrect] Text unchanged, skipping')
     return
   }
   field.lastText = fullText
@@ -338,19 +300,7 @@ async function handleInput(field: ManagedField): Promise<void> {
 
   // For large documents, only check text around cursor
   const { text: textToCheck, offset: textOffset } = getTextAroundCursor(field.element, 500)
-  console.log(
-    '[AutoCorrect] Checking text:',
-    textToCheck.substring(0, 50),
-    '... (',
-    textToCheck.length,
-    'of',
-    fullText.length,
-    'chars, offset:',
-    textOffset,
-    ')'
-  )
 
-  console.log('[AutoCorrect] Calling API...')
   const matches = await checkText(textToCheck, currentSettings.language, currentSettings.apiUrl)
 
   // Adjust match offsets to account for the text offset
@@ -359,7 +309,6 @@ async function handleInput(field: ManagedField): Promise<void> {
     offset: match.offset + textOffset,
   }))
 
-  console.log('[AutoCorrect] Got', adjustedMatches.length, 'matches')
   field.currentMatches = adjustedMatches
   field.renderer.render(adjustedMatches, fullText)
 }
@@ -369,11 +318,6 @@ function attachToField(element: HTMLInputElement | HTMLTextAreaElement | HTMLEle
     return
   }
 
-  console.log(
-    '[AutoCorrect] Attaching to field:',
-    element.tagName,
-    element.className?.substring?.(0, 50)
-  )
   const renderer = new UnderlineRenderer(element)
 
   const field: ManagedField = {
@@ -459,16 +403,6 @@ function scanForFields(): void {
     '[contenteditable]:not([contenteditable="false"])'
   )
 
-  console.log(
-    '[AutoCorrect] Scan found:',
-    inputs.length,
-    'inputs,',
-    textareas.length,
-    'textareas,',
-    contentEditables.length,
-    'contenteditables'
-  )
-
   inputs.forEach((el) => {
     if (isEditableElement(el)) {
       attachToField(el)
@@ -497,11 +431,6 @@ export function init(): void {
       if (mutation.type === 'attributes' && mutation.attributeName === 'contenteditable') {
         const target = mutation.target as Element
         if (target instanceof HTMLElement && isEditableElement(target)) {
-          console.log(
-            '[AutoCorrect] Contenteditable attribute changed on:',
-            target.tagName,
-            target.className?.substring?.(0, 50)
-          )
           attachToField(target)
         }
       }
