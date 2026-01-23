@@ -12,7 +12,9 @@ use crate::convert::convert_result;
 use crate::state::AppState;
 use crate::types::*;
 
-use grammar_rs::prelude::GrammarChecker;
+use grammar_rs::prelude::{GrammarChecker, SimpleTokenizer, PassthroughAnalyzer};
+use grammar_rs::core::traits::{Tokenizer, Analyzer, Checker};
+use grammar_rs::checker::L2ConfusionChecker;
 
 /// Handle POST /v2/check
 ///
@@ -48,8 +50,24 @@ pub async fn check_handler(
         &state.en_pipeline
     });
 
+    // Check if L2 French confusion checking should be enabled
+    let use_l2_fr = req.mother_tongue.as_deref() == Some("fr") && !lang_code.starts_with("fr");
+
     let result = tokio::task::spawn_blocking(move || {
-        pipeline_clone.check_text(&text)
+        let mut result = pipeline_clone.check_text(&text);
+
+        // Add L2 French confusion checking for French native speakers writing in English
+        if use_l2_fr {
+            let l2_checker = L2ConfusionChecker::new();
+            let tokenizer = SimpleTokenizer::new();
+            let analyzer = PassthroughAnalyzer::new();
+            let tokens = tokenizer.tokenize(&text);
+            let analyzed = analyzer.analyze(tokens);
+            let l2_result = l2_checker.check(&text, &analyzed);
+            result.matches.extend(l2_result.matches);
+        }
+
+        result
     })
     .await
     .unwrap();
@@ -60,6 +78,7 @@ pub async fn check_handler(
     let elapsed = start.elapsed();
     tracing::info!(
         lang = %lang_code,
+        mother_tongue = ?req.mother_tongue,
         matches = response.matches.len(),
         text_len = req.text.len(),
         elapsed_ms = elapsed.as_millis(),

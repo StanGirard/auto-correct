@@ -108,6 +108,16 @@ cargo test
 **Fichiers:** `src/rules/` (ImprovedAAnRule, SubjectVerbAgreementRule, etc)
 **Intégration:** `RuleChecker` dans les pipelines API
 
+## ✅ COMPLETED - L2 Confusion Checker (FR)
+**Description:** Faux amis pour francophones apprenant l'anglais.
+**Stats:** 325 paires de faux amis
+**Fichiers:** `l2_confusion_checker.rs`, `en_confusion_l2_fr.rs`
+**Intégration:** `L2ConfusionChecker` + API paramètre `motherTongue=fr`
+**Exemples:**
+- "lecture" → "reading" (FR "lecture" = lecture)
+- "fabric" → "factory" (FR "fabrique" = usine)
+- "pretend" → "claim" (FR "prétendre" = prétendre)
+
 ---
 
 # Features Différées

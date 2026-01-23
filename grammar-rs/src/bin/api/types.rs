@@ -9,6 +9,10 @@ use serde::{Deserialize, Serialize};
 pub struct CheckRequest {
     pub text: String,
     pub language: String,
+    /// Native language of the writer (e.g., "fr" for French speakers)
+    /// Enables L2-specific false friend detection
+    #[serde(rename = "motherTongue")]
+    pub mother_tongue: Option<String>,
     #[serde(rename = "preferredVariants")]
     pub preferred_variants: Option<String>,
     #[serde(rename = "disabledRules")]

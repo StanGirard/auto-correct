@@ -13,6 +13,7 @@ mod pos_pattern_checker;
 mod uncountable_checker;
 pub mod compound_checker;
 mod prohibit_checker;
+mod l2_confusion_checker;
 
 pub use spell::SpellChecker;
 pub use rules::{
@@ -102,3 +103,4 @@ pub use pos_pattern_checker::{PosPatternChecker, PosPatternRule, PosPatternEleme
 pub use uncountable_checker::UncountableNounChecker;
 pub use compound_checker::CompoundWordChecker;
 pub use prohibit_checker::ProhibitChecker;
+pub use l2_confusion_checker::L2ConfusionChecker;

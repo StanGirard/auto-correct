@@ -63,23 +63,22 @@
 
 ---
 
-## 4. L2 Learner Confusion Pairs - 🔶 Données non intégrées
+## 4. L2 Learner Confusion Pairs - ✅ FR COMPLÉTÉ
 
 **Description:** Paires de confusion spécifiques aux apprenants L2 selon leur langue maternelle.
 
-**État:** Données extraites, non intégrées dans le pipeline.
+**État:** FR intégré, autres langues disponibles mais non intégrées.
 
 | Fichier | Paires | Intégré |
 |---------|--------|---------|
 | `en_confusion_l2_de.rs` | 75 | ❌ |
-| `en_confusion_l2_es.rs` | ? | ❌ |
-| `en_confusion_l2_fr.rs` | ? | ❌ |
-| `en_confusion_l2_nl.rs` | ? | ❌ |
+| `en_confusion_l2_es.rs` | 26 | ❌ |
+| `en_confusion_l2_fr.rs` | 325 | ✅ `L2ConfusionChecker` |
+| `en_confusion_l2_nl.rs` | 11 | ❌ |
 
-**Sources LT:**
-- `languagetool/org/languagetool/resource/en/confusion_sets_l2_*.txt`
+**API:** `motherTongue=fr` active la détection de faux amis pour francophones.
 
-**Priorité:** MOYENNE
+**Priorité:** ~~MOYENNE~~ FR TERMINÉ
 
 ---
 
