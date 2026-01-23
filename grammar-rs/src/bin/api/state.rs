@@ -6,7 +6,7 @@ use grammar_rs::checker::{
     AhoPatternRuleChecker, ReplaceRuleChecker,
     StyleChecker, CoherencyChecker, DiacriticsChecker,
     ContractionChecker, ContextChecker,
-    PosPatternChecker,
+    PosPatternChecker, UncountableNounChecker,
     EN_PATTERN_RULES, FR_PATTERN_RULES,
     EN_REPLACE_RULES, FR_REPLACE_RULES,
     EN_ANTIPATTERNS, FR_ANTIPATTERNS,
@@ -100,6 +100,8 @@ impl AppState {
         .with_checker(ContractionChecker::new())
         // Context-sensitive words - uses default
         .with_checker(ContextChecker::new())
+        // Uncountable noun pluralization errors (informations → information)
+        .with_checker(UncountableNounChecker::new())
         // Default filters (URLs, code, quotes, etc.)
         .with_default_filters()
     }

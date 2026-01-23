@@ -10,6 +10,7 @@ mod diacritics_checker;
 mod contraction_checker;
 mod context_checker;
 mod pos_pattern_checker;
+mod uncountable_checker;
 
 pub use spell::SpellChecker;
 pub use rules::{
@@ -96,3 +97,4 @@ pub use diacritics_checker::DiacriticsChecker;
 pub use contraction_checker::ContractionChecker;
 pub use context_checker::ContextChecker;
 pub use pos_pattern_checker::{PosPatternChecker, PosPatternRule, PosPatternElement};
+pub use uncountable_checker::UncountableNounChecker;
