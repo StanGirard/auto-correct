@@ -39,7 +39,7 @@ impl RuleChecker {
     pub fn with_english_rules(self) -> Self {
         self.with_rule(DoubleSpaceRule)
             .with_rule(RepeatedWordRule)
-            .with_rule(AAnRule)
+            .with_rule(ImprovedAAnRule) // Use improved version with exceptions for one, union, etc.
             .with_rule(UppercaseSentenceStartRule)
             .with_rule(RepeatedPunctuationRule)
             .with_rule(MissingSpaceAfterPunctRule)
