@@ -36,6 +36,43 @@ pub mod dictionary;
 pub mod lang_detect;
 pub mod filter;
 
+/// Pre-warm all lazy statics to avoid first-call latency
+///
+/// Call this at startup (API init or test setup) to initialize
+/// all LazyLock data structures upfront. This is optional but
+/// improves response time for the first request.
+///
+/// # Example
+/// ```
+/// // Call once at startup
+/// grammar_rs::warm_up();
+/// ```
+pub fn warm_up() {
+    use checker::data::{
+        en_compounds::EN_COMPOUND_LOOKUP,
+        fr_compounds::FR_COMPOUND_LOOKUP,
+        en_antipatterns::EN_ANTIPATTERNS_BY_RULE,
+        fr_antipatterns::FR_ANTIPATTERNS_BY_RULE,
+    };
+    use checker::compound_checker::CompoundWordChecker;
+    use core::traits::Checker;
+
+    // Force initialization of compound lookup tables
+    let _ = EN_COMPOUND_LOOKUP.len();
+    let _ = FR_COMPOUND_LOOKUP.len();
+
+    // Force initialization of antipattern lookup tables
+    let _ = EN_ANTIPATTERNS_BY_RULE.len();
+    let _ = FR_ANTIPATTERNS_BY_RULE.len();
+
+    // Force initialization of compound first words sets
+    // by calling check() which accesses them internally
+    let en_checker = CompoundWordChecker::english();
+    let fr_checker = CompoundWordChecker::french();
+    let _ = en_checker.check("air plane", &[]);
+    let _ = fr_checker.check("aller retour", &[]);
+}
+
 /// Prelude - importe tout ce dont tu as besoin
 pub mod prelude {
     pub use crate::core::{

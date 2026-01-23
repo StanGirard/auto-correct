@@ -6,6 +6,15 @@
 //! Run with: cargo test quality -- --nocapture
 
 use grammar_rs::prelude::*;
+use std::sync::Once;
+
+static WARM_UP: Once = Once::new();
+
+fn ensure_warm() {
+    WARM_UP.call_once(|| {
+        grammar_rs::warm_up();
+    });
+}
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -265,6 +274,8 @@ fn run_rule_quality_tests(cases: &[RuleTestCase], checker: RuleChecker) -> Quali
 
 #[test]
 fn test_quality_metrics() {
+    ensure_warm();
+
     println!("\n");
     println!("╔════════════════════════════════════════════╗");
     println!("║       QUALITY BENCHMARK RESULTS            ║");

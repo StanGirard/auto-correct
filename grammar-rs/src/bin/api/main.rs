@@ -45,6 +45,10 @@ async fn main() {
 
     tracing::info!("Starting grammar-rs API server...");
 
+    // Pre-warm lazy statics for faster first request
+    tracing::info!("Pre-warming lazy statics...");
+    grammar_rs::warm_up();
+
     // Build application state (pre-initialize pipelines)
     let state = Arc::new(AppState::new());
 

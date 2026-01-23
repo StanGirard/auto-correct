@@ -1,6 +1,6 @@
 mod spell;
 mod rules;
-mod data;
+pub mod data;
 mod confusion;
 mod pattern_rules;
 mod replace_rules;
@@ -11,7 +11,7 @@ mod contraction_checker;
 mod context_checker;
 mod pos_pattern_checker;
 mod uncountable_checker;
-mod compound_checker;
+pub mod compound_checker;
 mod prohibit_checker;
 
 pub use spell::SpellChecker;
