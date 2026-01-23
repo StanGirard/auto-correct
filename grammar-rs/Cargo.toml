@@ -1,0 +1,56 @@
+[package]
+name = "grammar-rs"
+version = "0.1.0"
+edition = "2021"
+description = "Ultra-fast grammar checker in Rust"
+license = "MIT"
+
+[features]
+default = []
+# parallel = ["rayon"]  # Activer quand rayon est ajouté
+
+[dependencies]
+fst = "0.4"              # FST pour dictionnaires ultra-rapides
+quick-xml = "0.31"       # Parser XML pour grammar.xml
+chrono = "0.4"           # Timestamps pour fichiers générés
+aho-corasick = "1.0"     # Multi-pattern matching
+regex = "1.10"           # Regex for context-sensitive rules
+# unicode-segmentation = "1.10"  # Tokenization Unicode propre
+# rayon = { version = "1.8", optional = true }  # Parallélisme
+# serde = { version = "1.0", features = ["derive"] }  # Sérialisation
+# serde_json = "1.0"       # Pour charger des règles JSON
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bin]]
+name = "grammar-check"
+path = "src/bin/cli.rs"
+
+[[bin]]
+name = "build-dict"
+path = "src/bin/build_dict.rs"
+
+[[bin]]
+name = "convert-lt-rules"
+path = "src/bin/convert_lt_rules.rs"
+
+[[bin]]
+name = "sync-lt"
+path = "src/bin/sync_lt.rs"
+
+[[bench]]
+name = "tokenizer"
+harness = false
+
+[[bench]]
+name = "spell_checker"
+harness = false
+
+[[bench]]
+name = "rules"
+harness = false
+
+[[bench]]
+name = "pipeline"
+harness = false

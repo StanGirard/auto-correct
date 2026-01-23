@@ -1,0 +1,43 @@
+# Custom French confusion pairs for grammar-rs
+# Format: word1 -> word2; factor
+# These are merged with LanguageTool's confusion_sets.txt during sync
+# Only add high-confidence pairs with good context detection
+
+# Common accent confusions
+a -> à; 1000
+ou -> où; 1000
+
+# Verb conjugation confusions
+ai -> ait; 100
+ait -> ai; 100
+est -> et; 1000
+et -> est; 1000
+sont -> son; 1000
+son -> sont; 1000
+ont -> on; 1000
+on -> ont; 1000
+ces -> ses; 1000
+ses -> ces; 1000
+ce -> se; 100
+se -> ce; 100
+
+# Homophones
+mer -> mère; 1000
+mère -> mer; 1000
+ver -> verre; 1000
+ver -> vers; 1000
+ver -> vert; 1000
+cou -> coup; 100
+coup -> cou; 100
+cour -> cours; 100
+cours -> cour; 100
+foi -> fois; 1000
+fois -> foi; 1000
+foie -> foi; 100
+foi -> foie; 100
+voie -> voix; 1000
+voix -> voie; 1000
+soi -> soit; 100
+soit -> soi; 100
+près -> prêt; 100
+prêt -> près; 100
