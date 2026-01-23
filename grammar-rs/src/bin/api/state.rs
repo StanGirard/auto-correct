@@ -122,8 +122,14 @@ impl AppState {
         )
         // Pattern-based rules with antipattern filtering
         .with_checker(AhoPatternRuleChecker::with_antipatterns(FR_PATTERN_RULES, FR_ANTIPATTERNS))
+        // POS pattern rules (25 rules from LanguageTool)
+        .with_checker(PosPatternChecker::with_rules(FR_POS_PATTERN_RULES))
         // Simple replacements
         .with_checker(ReplaceRuleChecker::new(FR_REPLACE_RULES, "FR_REPLACE"))
+        // Style checking (wordiness, redundancy) - 51 FR rules
+        .with_checker(StyleChecker::french())
+        // Compound word errors (aller retour → aller-retour)
+        .with_checker(CompoundWordChecker::french())
         // Default filters
         .with_default_filters()
     }
