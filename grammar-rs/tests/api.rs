@@ -512,6 +512,28 @@ fn api_en_spell_checker_skip_words() {
 }
 
 #[test]
+fn api_en_spell_checker_disambig_skip() {
+    // Test that disambiguation skip patterns work
+    // These are words from disambiguation.xml that should be ignored
+    use grammar_rs::checker::{EN_DISAMBIG_SKIP, EN_DISAMBIG_SKIP_REGEX};
+
+    // Verify that expected patterns exist in the skip lists
+    // Words: French loanwords, partial words used in compound expressions
+    assert!(EN_DISAMBIG_SKIP.contains(&"de"),
+        "EN_DISAMBIG_SKIP should contain 'de' (from French loanwords)");
+    assert!(EN_DISAMBIG_SKIP.contains(&"kung"),
+        "EN_DISAMBIG_SKIP should contain 'kung' (from 'kung fu')");
+
+    // Verify non-empty
+    assert!(!EN_DISAMBIG_SKIP.is_empty(), "EN_DISAMBIG_SKIP should not be empty");
+    assert!(!EN_DISAMBIG_SKIP_REGEX.is_empty(), "EN_DISAMBIG_SKIP_REGEX should not be empty");
+
+    // Verify some regex patterns exist
+    println!("EN_DISAMBIG_SKIP has {} words", EN_DISAMBIG_SKIP.len());
+    println!("EN_DISAMBIG_SKIP_REGEX has {} patterns", EN_DISAMBIG_SKIP_REGEX.len());
+}
+
+#[test]
 fn api_en_spell_checker_correct_text() {
     let Some(spell_checker) = create_en_spell_checker() else {
         eprintln!("Skipping test: EN dictionary not found");

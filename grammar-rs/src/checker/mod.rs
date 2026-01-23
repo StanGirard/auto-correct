@@ -100,6 +100,15 @@ pub use data::{
     FR_IGNORE, is_fr_ignore,
     FR_SPELLING, is_fr_spelling,
 };
+// Disambiguation skip patterns
+pub use data::{
+    EN_DISAMBIG_SKIP, EN_DISAMBIG_SKIP_REGEX,
+    FR_DISAMBIG_SKIP, FR_DISAMBIG_SKIP_REGEX,
+};
+// Disambiguation POS rules
+pub use data::{
+    DisambigPosEntry, EN_DISAMBIG_POS, FR_DISAMBIG_POS,
+};
 pub use pattern_rules::{AhoPatternRuleChecker, PatternRule, PatternRuleChecker};
 pub use replace_rules::ReplaceRuleChecker;
 pub use style_checker::StyleChecker;

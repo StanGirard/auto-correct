@@ -16,6 +16,8 @@ use grammar_rs::checker::{
     // Spelling skip lists and dictionaries
     EN_IGNORE, EN_PROPER_NOUNS,
     FR_IGNORE, FR_SPELLING, FR_COMMON_WORDS,
+    // Disambiguation skip patterns
+    EN_DISAMBIG_SKIP, FR_DISAMBIG_SKIP,
 };
 use grammar_rs::dictionary::FstDictionary;
 use grammar_rs::core::PosTag;
@@ -86,11 +88,13 @@ impl AppState {
         match FstDictionary::from_fst(dict_path) {
             Ok(dict) => {
                 let word_count = dict.len();
+                let skip_count = EN_IGNORE.len() + EN_PROPER_NOUNS.len() + EN_DISAMBIG_SKIP.len();
                 let checker = SpellChecker::with_fst_dictionary(dict)
                     .with_skip_words(EN_IGNORE.iter().copied())
-                    .with_skip_words(EN_PROPER_NOUNS.iter().copied());
+                    .with_skip_words(EN_PROPER_NOUNS.iter().copied())
+                    .with_skip_words(EN_DISAMBIG_SKIP.iter().copied());
                 tracing::info!("EN spell checker enabled ({} dictionary words, {} skip words)",
-                              word_count, EN_IGNORE.len() + EN_PROPER_NOUNS.len());
+                              word_count, skip_count);
                 Some(checker)
             }
             Err(e) => {
@@ -107,11 +111,13 @@ impl AppState {
         let checker = SpellChecker::new()
             .with_words(FR_COMMON_WORDS.iter().copied())
             .with_words(FR_SPELLING.iter().copied())
-            .with_skip_words(FR_IGNORE.iter().copied());
+            .with_skip_words(FR_IGNORE.iter().copied())
+            .with_skip_words(FR_DISAMBIG_SKIP.iter().copied());
 
         let total_words = FR_COMMON_WORDS.len() + FR_SPELLING.len();
+        let skip_count = FR_IGNORE.len() + FR_DISAMBIG_SKIP.len();
         tracing::info!("FR spell checker enabled ({} dictionary words, {} skip words)",
-                      total_words, FR_IGNORE.len());
+                      total_words, skip_count);
         Some(checker)
     }
 

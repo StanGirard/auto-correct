@@ -217,6 +217,38 @@ struct Antipattern {
     tokens: Vec<AntipatternToken>,
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// Disambiguation structures
+// ═══════════════════════════════════════════════════════════════════════════════
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum DisambigAction {
+    Replace,
+    Add,
+    Remove,
+    IgnoreSpelling,
+    Filter,
+    FilterAll,
+    Unify,
+    Immunize,
+}
+
+#[derive(Debug, Clone)]
+struct DisambigWd {
+    lemma: Option<String>,
+    pos: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+struct DisambigRule {
+    id: String,
+    pattern: Vec<PatternToken>,
+    marker_indices: Vec<usize>,  // Which tokens are inside <marker>
+    action: DisambigAction,
+    wd: Option<DisambigWd>,
+    postag: Option<String>,
+}
+
 #[derive(Debug, Default)]
 struct SyncStats {
     grammar_rules: usize,
@@ -256,6 +288,10 @@ struct SyncStats {
     numbers_words: usize,
     // Phase 5
     antipatterns: usize,
+    // Phase 6: Disambiguation
+    disambig_skip: usize,
+    disambig_skip_regex: usize,
+    disambig_pos: usize,
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -317,6 +353,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         total_stats.numbers_words += stats.numbers_words;
         // Phase 5
         total_stats.antipatterns += stats.antipatterns;
+        // Phase 6: Disambiguation
+        total_stats.disambig_skip += stats.disambig_skip;
+        total_stats.disambig_skip_regex += stats.disambig_skip_regex;
+        total_stats.disambig_pos += stats.disambig_pos;
     }
 
     println!("\n{}", "=".repeat(70));
@@ -384,6 +424,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!(
         "  Antipatterns: {}",
         total_stats.antipatterns
+    );
+    // Phase 6: Disambiguation stats
+    println!(
+        "  Disambiguation skip: {} (+{} regex) | POS rules: {}",
+        total_stats.disambig_skip,
+        total_stats.disambig_skip_regex,
+        total_stats.disambig_pos
     );
     println!("{}", "=".repeat(70));
 
@@ -1070,6 +1117,40 @@ fn sync_language(lt_path: &Path, lang: &str) -> Result<SyncStats, Box<dyn std::e
         if !antipatterns.is_empty() {
             let code = generate_antipatterns_file(&antipatterns, lang);
             let output_path = output_dir.join(format!("{}_antipatterns.rs", lang));
+            fs::write(&output_path, code)?;
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // Phase 6: Disambiguation rules
+    // ═══════════════════════════════════════════════════════════════════════════════
+
+    // 27. Sync disambiguation.xml -> ignore_spelling patterns + POS rules
+    let disambig_path = resource_path.join("disambiguation.xml");
+    if disambig_path.exists() {
+        let rules = parse_disambiguation_xml(&disambig_path)?;
+        println!("   disambiguation.xml: {} rules parsed", rules.len());
+
+        // Extract ignore_spelling patterns (single-token)
+        let (skip_words, skip_regex) = extract_ignore_spelling_patterns(&rules);
+        stats.disambig_skip = skip_words.len();
+        stats.disambig_skip_regex = skip_regex.len();
+        println!("      ignore_spelling: {} words + {} regex patterns", stats.disambig_skip, stats.disambig_skip_regex);
+
+        if !skip_words.is_empty() || !skip_regex.is_empty() {
+            let code = generate_disambig_skip_file(&skip_words, &skip_regex, lang);
+            let output_path = output_dir.join(format!("{}_disambig_skip.rs", lang));
+            fs::write(&output_path, code)?;
+        }
+
+        // Extract single-token POS rules (replace/add)
+        let pos_rules = extract_single_token_pos_rules(&rules);
+        stats.disambig_pos = pos_rules.len();
+        println!("      single-token POS: {} rules", stats.disambig_pos);
+
+        if !pos_rules.is_empty() {
+            let code = generate_disambig_pos_file(&pos_rules, lang);
+            let output_path = output_dir.join(format!("{}_disambig_pos.rs", lang));
             fs::write(&output_path, code)?;
         }
     }
@@ -2978,6 +3059,20 @@ fn update_data_mod(output_dir: &Path, lang: &str) -> Result<(), Box<dyn std::err
         content.push_str(&format!("{}\n", antipatterns_mod));
     }
 
+    // Phase 6 modules (disambiguation)
+    let disambig_skip_mod = format!("pub mod {}_disambig_skip;", lang);
+    let disambig_pos_mod = format!("pub mod {}_disambig_pos;", lang);
+    let disambig_skip_exists = output_dir.join(format!("{}_disambig_skip.rs", lang)).exists();
+    let disambig_pos_exists = output_dir.join(format!("{}_disambig_pos.rs", lang)).exists();
+
+    if disambig_skip_exists && !content.contains(&disambig_skip_mod) {
+        content.push_str(&format!("{}\n", disambig_skip_mod));
+    }
+
+    if disambig_pos_exists && !content.contains(&disambig_pos_mod) {
+        content.push_str(&format!("{}\n", disambig_pos_mod));
+    }
+
     // Add re-exports if not present
     if patterns_exists {
         let pattern_export = format!(
@@ -3234,6 +3329,38 @@ fn update_data_mod(output_dir: &Path, lang: &str) -> Result<(), Box<dyn std::err
             lang
         );
         if !content.contains(&format!("{}_antipatterns::", lang)) {
+            content.push_str(&format!("\n{}\n", export));
+        }
+    }
+
+    // Phase 6: Disambiguation re-exports
+    if disambig_skip_exists {
+        let export = format!(
+            "pub use {}_disambig_skip::{{{}_DISAMBIG_SKIP, {}_DISAMBIG_SKIP_REGEX}};",
+            lang,
+            lang.to_uppercase(),
+            lang.to_uppercase()
+        );
+        if !content.contains(&format!("{}_disambig_skip::", lang)) {
+            content.push_str(&format!("\n{}\n", export));
+        }
+    }
+
+    if disambig_pos_exists {
+        let export = if lang == "en" {
+            format!(
+                "pub use {}_disambig_pos::{{DisambigPosEntry, {}_DISAMBIG_POS}};",
+                lang,
+                lang.to_uppercase()
+            )
+        } else {
+            format!(
+                "pub use {}_disambig_pos::{}_DISAMBIG_POS;",
+                lang,
+                lang.to_uppercase()
+            )
+        };
+        if !content.contains(&format!("{}_disambig_pos::", lang)) {
             content.push_str(&format!("\n{}\n", export));
         }
     }
@@ -5255,6 +5382,483 @@ fn generate_antipatterns_file(antipatterns: &[Antipattern], lang: &str) -> Strin
         lang.to_lowercase(),
         lang.to_uppercase()
     ));
+
+    output
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Phase 6: Parser - disambiguation.xml
+// ═══════════════════════════════════════════════════════════════════════════════
+
+fn parse_disambiguation_xml(path: &Path) -> Result<Vec<DisambigRule>, Box<dyn std::error::Error>> {
+    let content = fs::read_to_string(path)?;
+    let mut reader = Reader::from_str(&content);
+    reader.trim_text(true);
+
+    let mut rules = Vec::new();
+    let mut buf = Vec::new();
+
+    let mut current_rule_id = String::new();
+    let mut in_rule = false;
+    let mut in_pattern = false;
+    let mut in_marker = false;
+    let mut in_token = false;
+    let mut in_disambig = false;
+    let mut current_pattern: Vec<PatternToken> = Vec::new();
+    let mut marker_indices: Vec<usize> = Vec::new();
+    let mut current_token: Option<PatternToken> = None;
+    let mut current_action: Option<DisambigAction> = None;
+    let mut current_wd: Option<DisambigWd> = None;
+    let mut current_postag: Option<String> = None;
+    let mut text_buffer = String::new();
+
+    loop {
+        match reader.read_event_into(&mut buf) {
+            Ok(Event::Start(ref e)) => {
+                let name = String::from_utf8_lossy(e.name().as_ref()).to_string();
+
+                match name.as_str() {
+                    "rule" => {
+                        let id = get_attr(e, "id").unwrap_or_default();
+                        if !id.is_empty() {
+                            current_rule_id = id;
+                            in_rule = true;
+                            current_pattern.clear();
+                            marker_indices.clear();
+                            current_action = None;
+                            current_wd = None;
+                            current_postag = None;
+                        }
+                    }
+                    "pattern" if in_rule => {
+                        in_pattern = true;
+                        current_pattern.clear();
+                        marker_indices.clear();
+                    }
+                    "marker" if in_pattern => {
+                        in_marker = true;
+                    }
+                    "token" if in_pattern => {
+                        let mut token = PatternToken::default();
+                        token.inflected = get_attr(e, "inflected")
+                            .map(|v| v == "yes")
+                            .unwrap_or(false);
+                        token.case_sensitive = get_attr(e, "case_sensitive")
+                            .map(|v| v == "yes")
+                            .unwrap_or(false);
+                        token.negation = get_attr(e, "negate")
+                            .map(|v| v == "yes")
+                            .unwrap_or(false);
+                        token.postag = get_attr(e, "postag");
+                        token.postag_regexp = get_attr(e, "postag_regexp")
+                            .map(|v| v == "yes")
+                            .unwrap_or(false);
+                        if get_attr(e, "regexp").map(|v| v == "yes").unwrap_or(false) {
+                            // Regexp is stored in token text, marked as regexp
+                            token.regexp = Some("yes".to_string());
+                        }
+                        current_token = Some(token);
+                        in_token = true;
+                        text_buffer.clear();
+                    }
+                    "disambig" if in_rule => {
+                        in_disambig = true;
+                        let action_str = get_attr(e, "action").unwrap_or_default();
+                        current_action = match action_str.as_str() {
+                            "replace" => Some(DisambigAction::Replace),
+                            "add" => Some(DisambigAction::Add),
+                            "remove" => Some(DisambigAction::Remove),
+                            "ignore_spelling" => Some(DisambigAction::IgnoreSpelling),
+                            "filter" => Some(DisambigAction::Filter),
+                            "filterall" => Some(DisambigAction::FilterAll),
+                            "unify" => Some(DisambigAction::Unify),
+                            "immunize" => Some(DisambigAction::Immunize),
+                            _ => None,
+                        };
+                        // Check for postag attribute on disambig element
+                        current_postag = get_attr(e, "postag");
+                    }
+                    "wd" if in_disambig => {
+                        current_wd = Some(DisambigWd {
+                            lemma: get_attr(e, "lemma"),
+                            pos: get_attr(e, "pos"),
+                        });
+                    }
+                    _ => {}
+                }
+            }
+            Ok(Event::End(ref e)) => {
+                let name = String::from_utf8_lossy(e.name().as_ref()).to_string();
+
+                match name.as_str() {
+                    "rule" if in_rule => {
+                        // Save the rule if we have valid data
+                        if let Some(action) = current_action {
+                            rules.push(DisambigRule {
+                                id: current_rule_id.clone(),
+                                pattern: current_pattern.clone(),
+                                marker_indices: marker_indices.clone(),
+                                action,
+                                wd: current_wd.take(),
+                                postag: current_postag.take(),
+                            });
+                        }
+                        in_rule = false;
+                        current_rule_id.clear();
+                    }
+                    "pattern" if in_pattern => {
+                        in_pattern = false;
+                    }
+                    "marker" if in_marker => {
+                        in_marker = false;
+                    }
+                    "token" if in_token => {
+                        if let Some(mut token) = current_token.take() {
+                            if !text_buffer.is_empty() {
+                                if token.regexp.is_some() {
+                                    // This is a regex pattern
+                                    token.regexp = Some(text_buffer.clone());
+                                    token.text = None;
+                                } else {
+                                    token.text = Some(text_buffer.clone());
+                                }
+                            }
+                            // Track if this token is inside <marker>
+                            if in_marker {
+                                marker_indices.push(current_pattern.len());
+                            }
+                            current_pattern.push(token);
+                        }
+                        in_token = false;
+                    }
+                    "disambig" if in_disambig => {
+                        in_disambig = false;
+                    }
+                    _ => {}
+                }
+            }
+            Ok(Event::Text(e)) => {
+                let text = e.unescape().unwrap_or_default().to_string();
+                if in_token && in_pattern {
+                    text_buffer.push_str(&text);
+                }
+            }
+            Ok(Event::Empty(ref e)) => {
+                let name = String::from_utf8_lossy(e.name().as_ref()).to_string();
+                match name.as_str() {
+                    "token" if in_pattern => {
+                        let mut token = PatternToken::default();
+                        token.inflected = get_attr(e, "inflected")
+                            .map(|v| v == "yes")
+                            .unwrap_or(false);
+                        token.case_sensitive = get_attr(e, "case_sensitive")
+                            .map(|v| v == "yes")
+                            .unwrap_or(false);
+                        token.negation = get_attr(e, "negate")
+                            .map(|v| v == "yes")
+                            .unwrap_or(false);
+                        token.postag = get_attr(e, "postag");
+                        token.postag_regexp = get_attr(e, "postag_regexp")
+                            .map(|v| v == "yes")
+                            .unwrap_or(false);
+                        if get_attr(e, "regexp").map(|v| v == "yes").unwrap_or(false) {
+                            token.regexp = Some("yes".to_string());
+                        }
+                        // Track if this token is inside <marker>
+                        if in_marker {
+                            marker_indices.push(current_pattern.len());
+                        }
+                        current_pattern.push(token);
+                    }
+                    "disambig" if in_rule => {
+                        let action_str = get_attr(e, "action").unwrap_or_default();
+                        current_action = match action_str.as_str() {
+                            "replace" => Some(DisambigAction::Replace),
+                            "add" => Some(DisambigAction::Add),
+                            "remove" => Some(DisambigAction::Remove),
+                            "ignore_spelling" => Some(DisambigAction::IgnoreSpelling),
+                            "filter" => Some(DisambigAction::Filter),
+                            "filterall" => Some(DisambigAction::FilterAll),
+                            "unify" => Some(DisambigAction::Unify),
+                            "immunize" => Some(DisambigAction::Immunize),
+                            _ => None,
+                        };
+                        current_postag = get_attr(e, "postag");
+                    }
+                    "wd" if in_disambig => {
+                        current_wd = Some(DisambigWd {
+                            lemma: get_attr(e, "lemma"),
+                            pos: get_attr(e, "pos"),
+                        });
+                    }
+                    _ => {}
+                }
+            }
+            Ok(Event::Eof) => break,
+            Err(e) => {
+                eprintln!("Error parsing disambiguation.xml at position {}: {:?}", reader.buffer_position(), e);
+                break;
+            }
+            _ => {}
+        }
+        buf.clear();
+    }
+
+    Ok(rules)
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Phase 6: Extractors - disambiguation rules
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Extract ignore_spelling patterns (words and regex)
+fn extract_ignore_spelling_patterns(rules: &[DisambigRule]) -> (Vec<String>, Vec<String>) {
+    let mut words = Vec::new();
+    let mut regex_patterns = Vec::new();
+
+    for rule in rules {
+        if rule.action != DisambigAction::IgnoreSpelling {
+            continue;
+        }
+
+        // Only extract single-token patterns or patterns with marker on single token
+        let target_tokens: Vec<_> = if rule.marker_indices.is_empty() {
+            // No marker - use all tokens if there's just one
+            if rule.pattern.len() == 1 {
+                vec![&rule.pattern[0]]
+            } else {
+                continue; // Multi-token without marker - skip
+            }
+        } else {
+            // Has marker - use marked tokens
+            rule.marker_indices.iter()
+                .filter_map(|&i| rule.pattern.get(i))
+                .collect()
+        };
+
+        for token in target_tokens {
+            if let Some(ref regexp) = token.regexp {
+                if regexp != "yes" && !regexp.is_empty() {
+                    // This is an actual regex pattern
+                    regex_patterns.push(regexp.clone());
+                }
+            } else if let Some(ref text) = token.text {
+                if !text.is_empty() {
+                    words.push(text.to_lowercase());
+                }
+            }
+        }
+    }
+
+    // Deduplicate
+    words.sort();
+    words.dedup();
+    regex_patterns.sort();
+    regex_patterns.dedup();
+
+    (words, regex_patterns)
+}
+
+/// Struct for single-token POS rules
+#[derive(Debug, Clone)]
+struct SingleTokenPosRule {
+    word: Option<String>,
+    regexp: Option<String>,
+    lemma: String,
+    pos_tag: String,
+}
+
+/// Extract single-token POS rules (replace/add actions)
+fn extract_single_token_pos_rules(rules: &[DisambigRule]) -> Vec<SingleTokenPosRule> {
+    let mut pos_rules = Vec::new();
+
+    for rule in rules {
+        // Only replace and add actions
+        if rule.action != DisambigAction::Replace && rule.action != DisambigAction::Add {
+            continue;
+        }
+
+        // Must have POS information
+        let pos_tag = if let Some(ref wd) = rule.wd {
+            wd.pos.clone()
+        } else if let Some(ref postag) = rule.postag {
+            Some(postag.clone())
+        } else {
+            None
+        };
+
+        let pos_tag = match pos_tag {
+            Some(p) if !p.is_empty() => p,
+            _ => continue,
+        };
+
+        let lemma = rule.wd.as_ref()
+            .and_then(|wd| wd.lemma.clone())
+            .unwrap_or_default();
+
+        // Only single-token patterns or patterns with single marked token
+        let target_token = if rule.marker_indices.len() == 1 {
+            rule.pattern.get(rule.marker_indices[0])
+        } else if rule.pattern.len() == 1 && rule.marker_indices.is_empty() {
+            rule.pattern.get(0)
+        } else {
+            continue;
+        };
+
+        if let Some(token) = target_token {
+            if let Some(ref regexp) = token.regexp {
+                if regexp != "yes" && !regexp.is_empty() {
+                    pos_rules.push(SingleTokenPosRule {
+                        word: None,
+                        regexp: Some(regexp.clone()),
+                        lemma,
+                        pos_tag,
+                    });
+                }
+            } else if let Some(ref text) = token.text {
+                if !text.is_empty() {
+                    pos_rules.push(SingleTokenPosRule {
+                        word: Some(text.to_lowercase()),
+                        regexp: None,
+                        lemma,
+                        pos_tag,
+                    });
+                }
+            }
+        }
+    }
+
+    // Deduplicate by word/regexp + pos_tag
+    pos_rules.sort_by(|a, b| {
+        let key_a = (a.word.as_deref(), a.regexp.as_deref(), &a.pos_tag);
+        let key_b = (b.word.as_deref(), b.regexp.as_deref(), &b.pos_tag);
+        key_a.cmp(&key_b)
+    });
+    pos_rules.dedup_by(|a, b| {
+        a.word == b.word && a.regexp == b.regexp && a.pos_tag == b.pos_tag
+    });
+
+    pos_rules
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Phase 6: Generators - disambiguation files
+// ═══════════════════════════════════════════════════════════════════════════════
+
+fn generate_disambig_skip_file(words: &[String], regex_patterns: &[String], lang: &str) -> String {
+    let mut output = String::new();
+    let timestamp = chrono::Utc::now().to_rfc3339();
+
+    output.push_str(&format!(
+        "//! Auto-generated disambiguation skip patterns for {} from LanguageTool\n\
+         //! Synced: {}\n\
+         //! Total: {} words + {} regex patterns\n\
+         //! DO NOT EDIT MANUALLY - Run `cargo run --bin sync-lt` to update\n\
+         //!\n\
+         //! Source: LanguageTool disambiguation.xml (action=\"ignore_spelling\")\n\
+         //! License: LGPL 2.1+\n\
+         //!\n\
+         //! These patterns should be ignored by the spell checker.\n\n",
+        lang.to_uppercase(),
+        timestamp,
+        words.len(),
+        regex_patterns.len()
+    ));
+
+    // Generate words array
+    output.push_str(&format!(
+        "/// Skip words for {} spell checker (from disambiguation ignore_spelling rules)\n",
+        lang.to_uppercase()
+    ));
+    output.push_str(&format!(
+        "pub const {}_DISAMBIG_SKIP: &[&str] = &[\n",
+        lang.to_uppercase()
+    ));
+    for word in words {
+        output.push_str(&format!("    \"{}\",\n", escape_string(word)));
+    }
+    output.push_str("];\n\n");
+
+    // Generate regex patterns array
+    output.push_str(&format!(
+        "/// Skip regex patterns for {} spell checker (from disambiguation ignore_spelling rules)\n",
+        lang.to_uppercase()
+    ));
+    output.push_str(&format!(
+        "pub const {}_DISAMBIG_SKIP_REGEX: &[&str] = &[\n",
+        lang.to_uppercase()
+    ));
+    for pattern in regex_patterns {
+        output.push_str(&format!("    r\"{}\",\n", escape_string(pattern)));
+    }
+    output.push_str("];\n");
+
+    output
+}
+
+fn generate_disambig_pos_file(rules: &[SingleTokenPosRule], lang: &str) -> String {
+    let mut output = String::new();
+    let timestamp = chrono::Utc::now().to_rfc3339();
+
+    output.push_str(&format!(
+        "//! Auto-generated disambiguation POS rules for {} from LanguageTool\n\
+         //! Synced: {}\n\
+         //! Total: {} single-token rules\n\
+         //! DO NOT EDIT MANUALLY - Run `cargo run --bin sync-lt` to update\n\
+         //!\n\
+         //! Source: LanguageTool disambiguation.xml (action=\"replace\"/\"add\")\n\
+         //! License: LGPL 2.1+\n\
+         //!\n\
+         //! These rules can be used to enhance POS tagging.\n\n",
+        lang.to_uppercase(),
+        timestamp,
+        rules.len()
+    ));
+
+    // Only define struct for EN, other languages import from en_disambig_pos
+    if lang == "en" {
+        output.push_str("/// A single-token POS disambiguation rule\n");
+        output.push_str("#[derive(Debug, Clone)]\n");
+        output.push_str("pub struct DisambigPosEntry {\n");
+        output.push_str("    /// Literal word to match (case-insensitive), None if regex\n");
+        output.push_str("    pub word: Option<&'static str>,\n");
+        output.push_str("    /// Regex pattern to match, None if literal word\n");
+        output.push_str("    pub regexp: Option<&'static str>,\n");
+        output.push_str("    /// Lemma (base form) to assign\n");
+        output.push_str("    pub lemma: &'static str,\n");
+        output.push_str("    /// POS tag to assign\n");
+        output.push_str("    pub pos_tag: &'static str,\n");
+        output.push_str("}\n\n");
+    } else {
+        output.push_str("use super::en_disambig_pos::DisambigPosEntry;\n\n");
+    }
+
+    // Generate rules array
+    output.push_str(&format!(
+        "/// Single-token POS disambiguation rules for {}\n",
+        lang.to_uppercase()
+    ));
+    output.push_str(&format!(
+        "pub const {}_DISAMBIG_POS: &[DisambigPosEntry] = &[\n",
+        lang.to_uppercase()
+    ));
+
+    for rule in rules {
+        let word = match &rule.word {
+            Some(w) => format!("Some(\"{}\")", escape_string(w)),
+            None => "None".to_string(),
+        };
+        let regexp = match &rule.regexp {
+            Some(r) => format!("Some(r\"{}\")", escape_string(r)),
+            None => "None".to_string(),
+        };
+        output.push_str(&format!(
+            "    DisambigPosEntry {{ word: {}, regexp: {}, lemma: \"{}\", pos_tag: \"{}\" }},\n",
+            word, regexp, escape_string(&rule.lemma), escape_string(&rule.pos_tag)
+        ));
+    }
+
+    output.push_str("];\n");
 
     output
 }

@@ -179,3 +179,15 @@ pub mod fr_antipatterns;
 // Re-export types from en_antipatterns only, use FR_ANTIPATTERNS data directly
 pub use en_antipatterns::{Antipattern, AntipatternToken, EN_ANTIPATTERNS, get_en_antipatterns};
 pub use fr_antipatterns::{FR_ANTIPATTERNS, get_fr_antipatterns};
+pub mod en_disambig_skip;
+pub mod en_disambig_pos;
+
+pub use en_disambig_skip::{EN_DISAMBIG_SKIP, EN_DISAMBIG_SKIP_REGEX};
+
+pub use en_disambig_pos::{DisambigPosEntry, EN_DISAMBIG_POS};
+pub mod fr_disambig_skip;
+pub mod fr_disambig_pos;
+
+pub use fr_disambig_skip::{FR_DISAMBIG_SKIP, FR_DISAMBIG_SKIP_REGEX};
+
+pub use fr_disambig_pos::FR_DISAMBIG_POS;

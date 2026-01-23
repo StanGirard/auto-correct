@@ -126,14 +126,27 @@ cargo test --lib        # Tests unitaires uniquement
 ## ✅ COMPLETED - Spell Checker
 **Description:** Vérification orthographique avec dictionnaire FST et suggestions Levenshtein.
 **Stats:**
-- EN: 370,105 mots (FST) + 16,566 skip words (EN_IGNORE + EN_PROPER_NOUNS)
-- FR: 34,099 mots (HashSet) + 1,506 skip words (FR_IGNORE)
+- EN: 370,105 mots (FST) + 16,590 skip words (EN_IGNORE + EN_PROPER_NOUNS + EN_DISAMBIG_SKIP)
+- FR: 34,099 mots (HashSet) + 1,507 skip words (FR_IGNORE + FR_DISAMBIG_SKIP)
 **Fichiers:** `spell.rs`, `en_US.fst`, `en_ignore.rs`, `en_proper_nouns.rs`, `fr_spelling.rs`, `fr_ignore.rs`
 **Intégration:** `SpellChecker` dans les pipelines API EN et FR
 **Features:**
 - Dictionnaire FST pour EN (1.7MB, 370K mots)
-- Skip lists pour éviter faux positifs (acronymes, noms propres)
+- Skip lists pour éviter faux positifs (acronymes, noms propres, patterns disambiguation)
 - Suggestions via distance de Levenshtein
+
+## ✅ COMPLETED - Disambiguation Skip Patterns
+**Description:** Patterns extraits de disambiguation.xml pour ignorer certains mots du spell checker.
+**Stats:**
+- EN: 24 mots + 36 regex patterns
+- FR: 1 mot + 3 regex patterns
+**Fichiers:** `en_disambig_skip.rs`, `fr_disambig_skip.rs`, `en_disambig_pos.rs`, `fr_disambig_pos.rs`
+**Intégration:** Skip words ajoutés au SpellChecker via `EN_DISAMBIG_SKIP` / `FR_DISAMBIG_SKIP`
+**Extraction:** Programmatique via `sync-lt.rs` (Phase 6)
+**Features:**
+- Patterns ignore_spelling de disambiguation.xml
+- Évite les faux positifs sur contractions partielles, emprunts linguistiques
+- Règles POS single-token extraites (24 EN + 28 FR) pour future amélioration du POS tagger
 
 ---
 
