@@ -14,6 +14,7 @@ mod uncountable_checker;
 pub mod compound_checker;
 mod prohibit_checker;
 mod l2_confusion_checker;
+mod ngram_confusion_checker;
 
 pub use spell::SpellChecker;
 pub use rules::{
@@ -109,6 +110,10 @@ pub use data::{
 pub use data::{
     DisambigPosEntry, EN_DISAMBIG_POS, FR_DISAMBIG_POS,
 };
+// N-gram confusion words (for filtering N-gram data)
+pub use data::{
+    EN_NGRAM_WORDS, is_en_ngram_word,
+};
 pub use pattern_rules::{AhoPatternRuleChecker, PatternRule, PatternRuleChecker};
 pub use replace_rules::ReplaceRuleChecker;
 pub use style_checker::StyleChecker;
@@ -121,3 +126,4 @@ pub use uncountable_checker::UncountableNounChecker;
 pub use compound_checker::CompoundWordChecker;
 pub use prohibit_checker::ProhibitChecker;
 pub use l2_confusion_checker::L2ConfusionChecker;
+pub use ngram_confusion_checker::NgramConfusionChecker;

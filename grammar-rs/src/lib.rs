@@ -35,6 +35,8 @@ pub mod checker;
 pub mod dictionary;
 pub mod lang_detect;
 pub mod filter;
+pub mod lucene;
+pub mod language_model;
 
 /// Pre-warm all lazy statics to avoid first-call latency
 ///

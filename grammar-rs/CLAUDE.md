@@ -148,6 +148,75 @@ cargo test --lib        # Tests unitaires uniquement
 - Évite les faux positifs sur contractions partielles, emprunts linguistiques
 - Règles POS single-token extraites (24 EN + 28 FR) pour future amélioration du POS tagger
 
+## ✅ COMPLETED - N-gram Language Model
+**Description:** Modèle de langue N-gram pour calcul de probabilités contextuelles.
+**Fichiers:** `src/language_model/mod.rs`, `ngram_model.rs`, `probability.rs`
+**Algorithm:** Stupid Backoff (comme LanguageTool)
+- Trigram → Bigram (×0.4) → Unigram (×0.16)
+- Probabilité contextuelle P(mot|contexte)
+**Features:**
+- `NgramLanguageModel`: chargement depuis fichier binaire (bincode)
+- `Probability`: résultat avec coverage et occurrence count
+- `compare_words()`: ratio de probabilités pour comparaison
+**Utilisation:** Base pour détection de confusion via N-gram (voir NgramConfusionChecker)
+
+## ✅ COMPLETED - N-gram Confusion Checker
+**Description:** Détection de mots confondus basée sur probabilités N-gram.
+**Stats:** Support pour 1,363 paires EN (basic) + 3,571 paires EN (extended) + 101 FR
+**Fichiers:** `ngram_confusion_checker.rs`
+**Intégration:** `NgramConfusionChecker` (optionnel, requiert données N-gram)
+**Features:**
+- Utilise facteurs calibrés de LanguageTool (confusion_sets.txt)
+- Compare P(mot_actuel|contexte) vs P(alternative|contexte)
+- Support basic + extended confusion pairs
+- Requiert données N-gram préalablement extraites
+**Note:** Nécessite téléchargement et extraction des données N-gram (~9GB EN, ~2GB FR)
+
+## ✅ COMPLETED - Lucene Index Reader (Minimal)
+**Description:** Lecteur d'index Lucene 4.x en Rust pur pour extraction N-gram.
+**Fichiers:** `src/lucene/mod.rs`, `vint.rs`, `codec.rs`, `compound.rs`, `stored.rs`, `reader.rs`
+**Features:**
+- VInt decoder (base-128 variable integers)
+- Compound file parser (.cfs/.cfe)
+- Term dictionary extraction
+- Compatible format Lucene 4.1 (format N-gram LanguageTool)
+**Utilisation:** Extraction programmatique via `sync-lt.rs --extract-ngrams`
+
+## ✅ COMPLETED - N-gram Confusion Words List
+**Description:** Liste des mots à surveiller pour extraction N-gram sélective.
+**Stats:** 6,335 mots uniques extraits des confusion pairs
+**Fichiers:** `en_ngram_words.rs`
+**Extraction:** Automatique via `sync-lt.rs` depuis confusion_sets.txt + confusion_sets_extended.txt
+**Utilisation:** Filtre pour extraire uniquement les N-grams pertinents (~150MB au lieu de 9GB)
+
+## ✅ COMPLETED - Compact N-gram Storage Format
+**Description:** Format de stockage compressé avec memory-mapping pour N-grams.
+**Fichiers:** `src/language_model/compact_model.rs`, `src/language_model/builder.rs`
+**Features:**
+- Format binaire compact avec header + sections triées
+- Memory-mapped file (memmap2) pour chargement instantané
+- Binary search O(log n) sur arrays triés
+- ~0 GB RAM au runtime (tout en mmap)
+- Support EN + FR
+**Taille estimée:** ~1.5-2 GB EN, ~500 MB FR (vs 9 GB + 2 GB raw)
+
+## ✅ COMPLETED - N-gram Extraction Tool
+**Description:** Outil d'extraction de N-grams depuis données LanguageTool.
+**Fichiers:** `src/bin/sync_lt.rs` (flag `--extract-ngrams`)
+**Usage:**
+```bash
+# Télécharger les données N-gram
+./scripts/download_ngrams.sh en
+
+# Extraire au format compact
+cargo run --bin sync-lt -- --extract-ngrams --language en
+cargo run --bin sync-lt -- --extract-ngrams --language fr
+```
+**Options:**
+- `--ngram-path <path>`: Chemin vers données N-gram extraites
+- `--output <path>`: Répertoire de sortie
+- `--language <lang>`: en ou fr
+
 ---
 
 # Features Différées

@@ -7,7 +7,7 @@ use grammar_rs::checker::{
     StyleChecker, CoherencyChecker, DiacriticsChecker,
     ContractionChecker, ContextChecker,
     PosPatternChecker, UncountableNounChecker, CompoundWordChecker,
-    ProhibitChecker, SpellChecker,
+    ProhibitChecker, SpellChecker, NgramConfusionChecker,
     EN_PATTERN_RULES, FR_PATTERN_RULES,
     EN_REPLACE_RULES, FR_REPLACE_RULES,
     EN_ANTIPATTERNS, FR_ANTIPATTERNS,
@@ -164,6 +164,12 @@ impl AppState {
             pipeline = pipeline.with_checker(spell_checker);
         }
 
+        // N-gram confusion checker (optional - requires data/ngrams/en_ngrams.bin)
+        if let Some(ngram_checker) = NgramConfusionChecker::try_load_en() {
+            tracing::info!("EN N-gram confusion checker enabled");
+            pipeline = pipeline.with_checker(ngram_checker);
+        }
+
         // Default filters (URLs, code, quotes, etc.)
         pipeline.with_default_filters()
     }
@@ -194,6 +200,12 @@ impl AppState {
         // Spell checker (34K word dictionary from FR_SPELLING + skip list)
         if let Some(spell_checker) = Self::create_fr_spell_checker() {
             pipeline = pipeline.with_checker(spell_checker);
+        }
+
+        // N-gram confusion checker (optional - requires data/ngrams/fr_ngrams.bin)
+        if let Some(ngram_checker) = NgramConfusionChecker::try_load_fr() {
+            tracing::info!("FR N-gram confusion checker enabled");
+            pipeline = pipeline.with_checker(ngram_checker);
         }
 
         // Default filters
