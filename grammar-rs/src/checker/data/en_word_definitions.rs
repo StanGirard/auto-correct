@@ -1,5 +1,5 @@
 //! Auto-generated word definitions for EN from LanguageTool
-//! Synced: 2026-01-23T13:30:56.981709074+00:00
+//! Synced: 2026-01-23T18:37:49.321673663+00:00
 //! Total definitions: 1264
 //! DO NOT EDIT MANUALLY - Run `cargo run --bin sync-lt` to update
 //!

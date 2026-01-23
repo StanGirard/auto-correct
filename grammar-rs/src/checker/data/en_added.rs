@@ -1,5 +1,5 @@
 //! Auto-generated POS-tagged words for EN from LanguageTool
-//! Synced: 2026-01-23T13:30:57.020766255+00:00
+//! Synced: 2026-01-23T18:37:49.349541811+00:00
 //! Total entries: 441
 //! DO NOT EDIT MANUALLY - Run `cargo run --bin sync-lt` to update
 //!

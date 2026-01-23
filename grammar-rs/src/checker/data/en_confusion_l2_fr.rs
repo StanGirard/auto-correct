@@ -1,5 +1,5 @@
 //! Auto-generated L2 confusion pairs for French native speakers writing EN
-//! Synced: 2026-01-23T13:30:57.019064345+00:00
+//! Synced: 2026-01-23T18:37:49.347783701+00:00
 //! Total pairs: 325
 //! DO NOT EDIT MANUALLY - Run `cargo run --bin sync-lt` to update
 //!

@@ -191,3 +191,6 @@ pub mod fr_disambig_pos;
 pub use fr_disambig_skip::{FR_DISAMBIG_SKIP, FR_DISAMBIG_SKIP_REGEX};
 
 pub use fr_disambig_pos::FR_DISAMBIG_POS;
+pub mod en_ngram_words;
+
+pub use en_ngram_words::{EN_NGRAM_WORDS, is_en_ngram_word};

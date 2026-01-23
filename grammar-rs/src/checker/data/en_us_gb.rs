@@ -1,5 +1,5 @@
 //! Auto-generated US/GB spelling mappings for EN from LanguageTool
-//! Synced: 2026-01-23T13:30:57.005733259+00:00
+//! Synced: 2026-01-23T18:37:49.335430189+00:00
 //! Total mappings: 4799
 //! DO NOT EDIT MANUALLY - Run `cargo run --bin sync-lt` to update
 //!

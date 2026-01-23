@@ -1,5 +1,5 @@
 //! Auto-generated disambiguation POS rules for FR from LanguageTool
-//! Synced: 2026-01-23T17:52:30.541507378+00:00
+//! Synced: 2026-01-23T18:37:51.914841456+00:00
 //! Total: 28 single-token rules
 //! DO NOT EDIT MANUALLY - Run `cargo run --bin sync-lt` to update
 //!

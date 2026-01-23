@@ -292,6 +292,8 @@ struct SyncStats {
     disambig_skip: usize,
     disambig_skip_regex: usize,
     disambig_pos: usize,
+    // Phase 7: N-gram confusion words
+    ngram_confusion_words: usize,
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -300,6 +302,36 @@ struct SyncStats {
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().collect();
+
+    // Check for help
+    if args.iter().any(|a| a == "--help" || a == "-h") {
+        print_help();
+        return Ok(());
+    }
+
+    // Check for N-gram extraction mode
+    if args.iter().any(|a| a == "--extract-ngrams") {
+        let ngram_path = if let Some(idx) = args.iter().position(|a| a == "--ngram-path") {
+            PathBuf::from(args.get(idx + 1).expect("--ngram-path requires a value"))
+        } else {
+            // Default path: data/ngrams/ngrams-en-20150817/
+            PathBuf::from("data/ngrams")
+        };
+
+        let output_path = if let Some(idx) = args.iter().position(|a| a == "--output") {
+            PathBuf::from(args.get(idx + 1).expect("--output requires a value"))
+        } else {
+            PathBuf::from("data/ngrams")
+        };
+
+        let lang = if let Some(idx) = args.iter().position(|a| a == "--language") {
+            args.get(idx + 1).expect("--language requires a value").clone()
+        } else {
+            "en".to_string()
+        };
+
+        return extract_ngrams(&ngram_path, &output_path, &lang);
+    }
 
     // Parse arguments
     let lt_path = if let Some(idx) = args.iter().position(|a| a == "--path") {
@@ -357,6 +389,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         total_stats.disambig_skip += stats.disambig_skip;
         total_stats.disambig_skip_regex += stats.disambig_skip_regex;
         total_stats.disambig_pos += stats.disambig_pos;
+        // Phase 7: N-gram
+        total_stats.ngram_confusion_words += stats.ngram_confusion_words;
     }
 
     println!("\n{}", "=".repeat(70));
@@ -431,6 +465,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         total_stats.disambig_skip,
         total_stats.disambig_skip_regex,
         total_stats.disambig_pos
+    );
+    // Phase 7: N-gram stats
+    println!(
+        "  N-gram confusion words: {}",
+        total_stats.ngram_confusion_words
     );
     println!("{}", "=".repeat(70));
 
@@ -1151,6 +1190,49 @@ fn sync_language(lt_path: &Path, lang: &str) -> Result<SyncStats, Box<dyn std::e
         if !pos_rules.is_empty() {
             let code = generate_disambig_pos_file(&pos_rules, lang);
             let output_path = output_dir.join(format!("{}_disambig_pos.rs", lang));
+            fs::write(&output_path, code)?;
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // Phase 7: N-gram confusion words extraction
+    // ═══════════════════════════════════════════════════════════════════════════════
+
+    // 28. Extract unique words from all confusion pairs for N-gram filtering
+    if lang == "en" {
+        let mut confusion_words = std::collections::HashSet::new();
+
+        // Add words from main confusion_sets.txt
+        let confusion_path = rules_path.join("confusion_sets.txt");
+        if confusion_path.exists() {
+            if let Ok(pairs) = parse_confusion_sets(&confusion_path) {
+                for pair in &pairs {
+                    confusion_words.insert(pair.word1.to_lowercase());
+                    confusion_words.insert(pair.word2.to_lowercase());
+                }
+            }
+        }
+
+        // Add words from confusion_sets_extended.txt
+        let extended_path = resource_path.join("confusion_sets_extended.txt");
+        if extended_path.exists() {
+            if let Ok(pairs) = parse_confusion_extended(&extended_path) {
+                for pair in &pairs {
+                    confusion_words.insert(pair.word1.to_lowercase());
+                    confusion_words.insert(pair.word2.to_lowercase());
+                }
+            }
+        }
+
+        stats.ngram_confusion_words = confusion_words.len();
+        println!("   N-gram confusion words: {} unique words extracted", stats.ngram_confusion_words);
+
+        // Generate confusion words file for N-gram filtering
+        if !confusion_words.is_empty() {
+            let mut words: Vec<_> = confusion_words.into_iter().collect();
+            words.sort();
+            let code = generate_ngram_words_file(&words, lang);
+            let output_path = output_dir.join(format!("{}_ngram_words.rs", lang));
             fs::write(&output_path, code)?;
         }
     }
@@ -3073,6 +3155,14 @@ fn update_data_mod(output_dir: &Path, lang: &str) -> Result<(), Box<dyn std::err
         content.push_str(&format!("{}\n", disambig_pos_mod));
     }
 
+    // Phase 7 modules (N-gram)
+    let ngram_words_mod = format!("pub mod {}_ngram_words;", lang);
+    let ngram_words_exists = output_dir.join(format!("{}_ngram_words.rs", lang)).exists();
+
+    if ngram_words_exists && !content.contains(&ngram_words_mod) {
+        content.push_str(&format!("{}\n", ngram_words_mod));
+    }
+
     // Add re-exports if not present
     if patterns_exists {
         let pattern_export = format!(
@@ -3361,6 +3451,19 @@ fn update_data_mod(output_dir: &Path, lang: &str) -> Result<(), Box<dyn std::err
             )
         };
         if !content.contains(&format!("{}_disambig_pos::", lang)) {
+            content.push_str(&format!("\n{}\n", export));
+        }
+    }
+
+    // Phase 7: N-gram words re-export
+    if ngram_words_exists {
+        let export = format!(
+            "pub use {}_ngram_words::{{{}_NGRAM_WORDS, is_{}_ngram_word}};",
+            lang,
+            lang.to_uppercase(),
+            lang
+        );
+        if !content.contains(&format!("{}_ngram_words::", lang)) {
             content.push_str(&format!("\n{}\n", export));
         }
     }
@@ -5873,4 +5976,418 @@ fn escape_string(s: &str) -> String {
         .replace('\n', "\\n")
         .replace('\r', "\\r")
         .replace('\t', "\\t")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Phase 7: Generator - N-gram confusion words
+// ═══════════════════════════════════════════════════════════════════════════════
+
+fn generate_ngram_words_file(words: &[String], lang: &str) -> String {
+    let mut output = String::new();
+    let timestamp = chrono::Utc::now().to_rfc3339();
+
+    output.push_str(&format!(
+        "//! Auto-generated N-gram confusion words for {} from LanguageTool\n\
+         //! Synced: {}\n\
+         //! Total: {} unique words\n\
+         //! DO NOT EDIT MANUALLY - Run `cargo run --bin sync-lt` to update\n\
+         //!\n\
+         //! Source: LanguageTool confusion_sets.txt + confusion_sets_extended.txt\n\
+         //! License: LGPL 2.1+\n\
+         //!\n\
+         //! These words are used to filter N-gram data for confusion detection.\n\
+         //! N-grams containing any of these words will be extracted from the\n\
+         //! full N-gram corpus for efficient confusion pair checking.\n\n",
+        lang.to_uppercase(),
+        timestamp,
+        words.len()
+    ));
+
+    // Generate words array
+    output.push_str(&format!(
+        "/// Words from confusion pairs that need N-gram probability data\n\
+         /// These are extracted from confusion_sets.txt and confusion_sets_extended.txt\n"
+    ));
+    output.push_str(&format!(
+        "pub const {}_NGRAM_WORDS: &[&str] = &[\n",
+        lang.to_uppercase()
+    ));
+
+    for word in words {
+        output.push_str(&format!("    \"{}\",\n", escape_string(word)));
+    }
+    output.push_str("];\n\n");
+
+    // Generate lookup function
+    output.push_str(&format!(
+        "/// Check if a word needs N-gram probability data\n\
+         #[inline]\n\
+         pub fn is_{}_ngram_word(word: &str) -> bool {{\n\
+         \x20   {}_NGRAM_WORDS.binary_search(&word).is_ok()\n\
+         }}\n",
+        lang, lang.to_uppercase()
+    ));
+
+    output
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Phase 8: N-gram extraction from Lucene indexes
+// ═══════════════════════════════════════════════════════════════════════════════
+
+fn print_help() {
+    println!("sync-lt - Synchronize LanguageTool rules to grammar-rs");
+    println!();
+    println!("Usage:");
+    println!("  cargo run --bin sync-lt                    # Clone/update LT and sync rules");
+    println!("  cargo run --bin sync-lt -- --path ./lt     # Use local LanguageTool path");
+    println!();
+    println!("N-gram extraction:");
+    println!("  cargo run --bin sync-lt -- --extract-ngrams [options]");
+    println!();
+    println!("Options for --extract-ngrams:");
+    println!("  --ngram-path <path>   Path to extracted N-gram data (default: data/ngrams)");
+    println!("  --output <path>       Output directory (default: data/ngrams)");
+    println!("  --language <lang>     Language to extract: en or fr (default: en)");
+    println!();
+    println!("Example:");
+    println!("  # 1. Download N-gram data first:");
+    println!("  curl -L -o data/ngrams/ngrams-en-20150817.zip \\");
+    println!("    https://languagetool.org/download/ngram-data/ngrams-en-20150817.zip");
+    println!("  unzip data/ngrams/ngrams-en-20150817.zip -d data/ngrams/");
+    println!();
+    println!("  # 2. Extract to compact format:");
+    println!("  cargo run --bin sync-lt -- --extract-ngrams --language en");
+}
+
+fn extract_ngrams(
+    ngram_path: &Path,
+    output_path: &Path,
+    lang: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    use grammar_rs::language_model::StreamingNgramBuilder;
+
+    println!("Extracting N-grams for language: {}", lang.to_uppercase());
+    println!("Input path: {}", ngram_path.display());
+    println!("Output path: {}", output_path.display());
+
+    // Create output directory
+    fs::create_dir_all(output_path)?;
+
+    // Check for SORTED TSV files (required for streaming builder)
+    let sorted_1grams = ngram_path.join(format!("{}_1grams_sorted.tsv", lang));
+    let sorted_2grams = ngram_path.join(format!("{}_2grams_sorted.tsv", lang));
+    let sorted_3grams = ngram_path.join(format!("{}_3grams_sorted.tsv", lang));
+
+    // Also check for unsorted TSV files
+    let tsv_1grams = ngram_path.join(format!("{}_1grams.tsv", lang));
+    let tsv_2grams = ngram_path.join(format!("{}_2grams.tsv", lang));
+    let tsv_3grams = ngram_path.join(format!("{}_3grams.tsv", lang));
+
+    // Debug: print paths being checked
+    eprintln!("DEBUG: Checking sorted paths:");
+    eprintln!("  1grams: {} (exists: {})", sorted_1grams.display(), sorted_1grams.exists());
+    eprintln!("  2grams: {} (exists: {})", sorted_2grams.display(), sorted_2grams.exists());
+    eprintln!("  3grams: {} (exists: {})", sorted_3grams.display(), sorted_3grams.exists());
+
+    let has_sorted = sorted_1grams.exists() || sorted_2grams.exists() || sorted_3grams.exists();
+    let has_unsorted = tsv_1grams.exists() || tsv_2grams.exists() || tsv_3grams.exists();
+
+    eprintln!("DEBUG: has_sorted={}, has_unsorted={}", has_sorted, has_unsorted);
+
+    if has_sorted {
+        println!("Found sorted TSV files, using streaming builder...");
+
+        let uni_path = if sorted_1grams.exists() { Some(sorted_1grams.as_path()) } else { None };
+        let bi_path = if sorted_2grams.exists() { Some(sorted_2grams.as_path()) } else { None };
+        let tri_path = if sorted_3grams.exists() { Some(sorted_3grams.as_path()) } else { None };
+
+        let output_file = output_path.join(format!("{}_ngrams.bin", lang));
+
+        let stats = StreamingNgramBuilder::build_from_sorted_tsv(
+            uni_path,
+            bi_path,
+            tri_path,
+            &output_file,
+        )?;
+
+        println!("\nN-gram extraction complete!");
+        println!("{}", stats);
+
+        return Ok(());
+    }
+
+    if has_unsorted {
+        println!("Found unsorted TSV files. Please sort them first:");
+        println!("  LC_ALL=C sort -t$'\\t' -k1,1 {}_1grams.tsv -o {}_1grams_sorted.tsv", lang, lang);
+        println!("  LC_ALL=C sort --parallel=4 -S 4G -t$'\\t' -k1,1 {}_2grams.tsv -o {}_2grams_sorted.tsv", lang, lang);
+        println!("  LC_ALL=C sort --parallel=4 -S 8G -t$'\\t' -k1,1 {}_3grams.tsv -o {}_3grams_sorted.tsv", lang, lang);
+        return Err("Unsorted TSV files found. Sort them first (see above).".into());
+    }
+
+    // No TSV files - fall back to legacy Lucene extraction (limited, not recommended)
+    println!("No TSV files found. For full N-gram extraction:");
+    println!("  1. Download ngrams from https://languagetool.org/download/ngram-data/");
+    println!("  2. Extract with Java (see scripts/ExtractNgrams.java)");
+    println!("  3. Sort TSV files (see commands above)");
+    println!("  4. Run this command again");
+
+    // Legacy fallback for small extractions
+    use grammar_rs::lucene::NgramIndexReader;
+    use grammar_rs::language_model::CompactNgramBuilder;
+
+    let mut builder = CompactNgramBuilder::new();
+    let mut total_unigrams = 0u64;
+    let mut total_bigrams = 0u64;
+    let mut total_trigrams = 0u64;
+    let mut total_tokens = 0u64;
+
+    // Determine the N-gram subdirectories (try both naming conventions)
+    let ngram_subdirs = match lang {
+        "en" => vec!["en", "ngrams-en-20150817"],
+        "fr" => vec!["fr", "ngrams-fr-20150913"],
+        _ => return Err(format!("Unsupported language: {}", lang).into()),
+    };
+
+    // Find base path
+    let base_path = ngram_subdirs
+        .iter()
+        .map(|subdir| ngram_path.join(subdir))
+        .find(|p| p.exists());
+
+    let use_tsv = false; // No TSV files available
+
+    if use_tsv {
+        println!("Found pre-extracted TSV files, using those...");
+
+        // Process 1-grams TSV
+        if tsv_1grams.exists() {
+            println!("Processing 1-grams from {}...", tsv_1grams.display());
+            match load_tsv_ngrams(&tsv_1grams) {
+                Ok(entries) => {
+                    for (ngram, count) in &entries {
+                        builder.add_unigram(ngram.clone(), *count);
+                        total_tokens += count;
+                    }
+                    total_unigrams = entries.len() as u64;
+                    println!("  Loaded {} unigrams", total_unigrams);
+                }
+                Err(e) => println!("  Warning: Could not process 1-grams TSV: {}", e),
+            }
+        }
+
+        // Process 2-grams TSV
+        if tsv_2grams.exists() {
+            println!("Processing 2-grams from {}...", tsv_2grams.display());
+            match load_tsv_ngrams(&tsv_2grams) {
+                Ok(entries) => {
+                    for (ngram, count) in &entries {
+                        builder.add_bigram(ngram.clone(), *count);
+                    }
+                    total_bigrams = entries.len() as u64;
+                    println!("  Loaded {} bigrams", total_bigrams);
+                }
+                Err(e) => println!("  Warning: Could not process 2-grams TSV: {}", e),
+            }
+        }
+
+        // Process 3-grams TSV
+        if tsv_3grams.exists() {
+            println!("Processing 3-grams from {}...", tsv_3grams.display());
+            match load_tsv_ngrams(&tsv_3grams) {
+                Ok(entries) => {
+                    for (ngram, count) in &entries {
+                        builder.add_trigram(ngram.clone(), *count);
+                    }
+                    total_trigrams = entries.len() as u64;
+                    println!("  Loaded {} trigrams", total_trigrams);
+                }
+                Err(e) => println!("  Warning: Could not process 3-grams TSV: {}", e),
+            }
+        }
+    } else if let Some(base_path) = base_path {
+        // Fall back to Lucene index reading
+        println!("No TSV files found, attempting Lucene index reading...");
+
+        // Process 1-grams
+        let unigram_path = base_path.join("1grams");
+        if unigram_path.exists() {
+            println!("Processing 1-grams from {}...", unigram_path.display());
+            match process_ngram_directory(&unigram_path) {
+                Ok(entries) => {
+                    for (ngram, count) in &entries {
+                        builder.add_unigram(ngram.clone(), *count);
+                        total_tokens += count;
+                    }
+                    total_unigrams = entries.len() as u64;
+                    println!("  Loaded {} unigrams", total_unigrams);
+                }
+                Err(e) => {
+                    println!("  Warning: Could not process 1-grams: {}", e);
+                }
+            }
+        }
+
+        // Process 2-grams
+        let bigram_path = base_path.join("2grams");
+        if bigram_path.exists() {
+            println!("Processing 2-grams from {}...", bigram_path.display());
+            match process_ngram_directory(&bigram_path) {
+                Ok(entries) => {
+                    for (ngram, count) in &entries {
+                        builder.add_bigram(ngram.clone(), *count);
+                    }
+                    total_bigrams = entries.len() as u64;
+                    println!("  Loaded {} bigrams", total_bigrams);
+                }
+                Err(e) => {
+                    println!("  Warning: Could not process 2-grams: {}", e);
+                }
+            }
+        }
+
+        // Process 3-grams
+        let trigram_path = base_path.join("3grams");
+        if trigram_path.exists() {
+            println!("Processing 3-grams from {}...", trigram_path.display());
+            match process_ngram_directory(&trigram_path) {
+                Ok(entries) => {
+                    for (ngram, count) in &entries {
+                        builder.add_trigram(ngram.clone(), *count);
+                    }
+                    total_trigrams = entries.len() as u64;
+                    println!("  Loaded {} trigrams", total_trigrams);
+                }
+                Err(e) => {
+                    println!("  Warning: Could not process 3-grams: {}", e);
+                }
+            }
+        }
+    } else {
+        return Err(format!(
+            "No N-gram data found. Either:\n\
+             1. Place TSV files at: {}_1grams.tsv, {}_2grams.tsv, {}_3grams.tsv\n\
+             2. Or download Lucene indexes from: https://languagetool.org/download/ngram-data/ngrams-{}-*.zip\n\
+             Then extract to: {}",
+            ngram_path.join(lang).display(),
+            ngram_path.join(lang).display(),
+            ngram_path.join(lang).display(),
+            lang,
+            ngram_path.display()
+        ).into());
+    }
+
+    builder.set_total_tokens(total_tokens);
+
+    // Build compact file
+    let output_file = output_path.join(format!("{}_ngrams.bin", lang));
+    println!("\nBuilding compact N-gram file: {}", output_file.display());
+
+    let stats = builder.build(&output_file)?;
+    println!("{}", stats);
+
+    println!("\nN-gram extraction complete!");
+    println!("  Unigrams: {}", total_unigrams);
+    println!("  Bigrams: {}", total_bigrams);
+    println!("  Trigrams: {}", total_trigrams);
+    println!("  Total tokens: {}", total_tokens);
+
+    Ok(())
+}
+
+/// Load N-grams from a TSV file (ngram<TAB>count format)
+fn load_tsv_ngrams(tsv_path: &Path) -> Result<Vec<(String, u64)>, Box<dyn std::error::Error>> {
+    let file = fs::File::open(tsv_path)?;
+    let reader = BufReader::with_capacity(1024 * 1024, file); // 1MB buffer
+
+    let mut entries = Vec::new();
+    let mut lines_read = 0u64;
+
+    for line in reader.lines() {
+        let line = line?;
+        let parts: Vec<&str> = line.split('\t').collect();
+
+        if parts.len() >= 2 {
+            let ngram = parts[0].to_string();
+            if let Ok(count) = parts[1].parse::<u64>() {
+                // Skip entries with empty ngrams or very short/weird ones
+                if !ngram.is_empty() && ngram.len() < 500 {
+                    entries.push((ngram, count));
+                }
+            }
+        }
+
+        lines_read += 1;
+        if lines_read % 1_000_000 == 0 {
+            eprintln!("  Read {} million lines...", lines_read / 1_000_000);
+        }
+    }
+
+    Ok(entries)
+}
+
+/// Process a single N-gram directory (e.g., 1grams/, 2grams/, 3grams/)
+fn process_ngram_directory(dir_path: &Path) -> Result<Vec<(String, u64)>, Box<dyn std::error::Error>> {
+    use grammar_rs::lucene::NgramIndexReader;
+
+    let mut all_entries = Vec::new();
+
+    // First, try to read the directory directly as a Lucene index
+    match NgramIndexReader::open(dir_path) {
+        Ok(reader) => {
+            let entries = reader.entries();
+            all_entries.extend(entries.iter().map(|(k, v)| (k.clone(), *v)));
+            if !all_entries.is_empty() {
+                return Ok(all_entries);
+            }
+        }
+        Err(_) => {
+            // Not a direct Lucene index, try subdirectories
+        }
+    }
+
+    // Look for subdirectories that might contain Lucene indexes
+    for entry in fs::read_dir(dir_path)? {
+        let entry = entry?;
+        let path = entry.path();
+
+        if path.is_dir() {
+            // Try to open this subdirectory as a Lucene index
+            match NgramIndexReader::open(&path) {
+                Ok(reader) => {
+                    let entries = reader.entries();
+                    all_entries.extend(entries.iter().map(|(k, v)| (k.clone(), *v)));
+                }
+                Err(e) => {
+                    eprintln!("Warning: Could not read {}: {}", path.display(), e);
+                }
+            }
+        }
+    }
+
+    // If no Lucene files found, try reading from text files (alternative format)
+    if all_entries.is_empty() {
+        for entry in fs::read_dir(dir_path)? {
+            let entry = entry?;
+            let path = entry.path();
+
+            if path.extension().map_or(false, |ext| ext == "txt" || ext == "tsv") {
+                let file = fs::File::open(&path)?;
+                let reader = BufReader::new(file);
+
+                for line in reader.lines() {
+                    let line = line?;
+                    let parts: Vec<&str> = line.split('\t').collect();
+                    if parts.len() >= 2 {
+                        let ngram = parts[0].to_string();
+                        if let Ok(count) = parts[1].parse::<u64>() {
+                            all_entries.push((ngram, count));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(all_entries)
 }

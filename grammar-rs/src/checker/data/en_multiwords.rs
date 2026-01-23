@@ -1,5 +1,5 @@
 //! Auto-generated multiword expressions for EN from LanguageTool
-//! Synced: 2026-01-23T13:30:56.924700696+00:00
+//! Synced: 2026-01-23T18:37:49.274752741+00:00
 //! Total entries: 8164
 //! DO NOT EDIT MANUALLY - Run `cargo run --bin sync-lt` to update
 //!

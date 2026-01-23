@@ -1,5 +1,5 @@
 //! Auto-generated multiword expressions for FR from LanguageTool
-//! Synced: 2026-01-23T13:30:58.194763164+00:00
+//! Synced: 2026-01-23T18:37:51.366852748+00:00
 //! Total entries: 683
 //! DO NOT EDIT MANUALLY - Run `cargo run --bin sync-lt` to update
 //!

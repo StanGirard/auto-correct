@@ -1,5 +1,5 @@
 //! Auto-generated antipatterns for FR from LanguageTool
-//! Synced: 2026-01-23T14:23:46.773210646+00:00
+//! Synced: 2026-01-23T18:37:51.879396153+00:00
 //! Total antipatterns: 216
 //! DO NOT EDIT MANUALLY - Run `cargo run --bin sync-lt` to update
 //!

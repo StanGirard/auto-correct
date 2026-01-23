@@ -1,5 +1,5 @@
 //! Auto-generated extended confusion data for EN from LanguageTool
-//! Synced: 2026-01-23T13:30:56.813565841+00:00
+//! Synced: 2026-01-23T18:37:49.157923389+00:00
 //! Total pairs: 3571
 //! DO NOT EDIT MANUALLY - Run `cargo run --bin sync-lt` to update
 //!
