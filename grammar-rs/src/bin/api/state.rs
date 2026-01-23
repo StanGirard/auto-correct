@@ -13,9 +13,9 @@ use grammar_rs::checker::{
     EN_ANTIPATTERNS, FR_ANTIPATTERNS,
     EN_POS_PATTERN_RULES, FR_POS_PATTERN_RULES,
     EN_ADDED_WORDS,
-    // Spelling skip lists
+    // Spelling skip lists and dictionaries
     EN_IGNORE, EN_PROPER_NOUNS,
-    FR_IGNORE, FR_SPELLING,
+    FR_IGNORE, FR_SPELLING, FR_COMMON_WORDS,
 };
 use grammar_rs::dictionary::FstDictionary;
 use grammar_rs::core::PosTag;
@@ -100,16 +100,18 @@ impl AppState {
         }
     }
 
-    /// Create a French spell checker using FR_SPELLING as dictionary
+    /// Create a French spell checker using FR_COMMON_WORDS + FR_SPELLING as dictionary
     fn create_fr_spell_checker() -> Option<SpellChecker> {
-        // FR doesn't have a full FST dictionary, use FR_SPELLING (34K words) as a simple dictionary
-        // This is limited but provides basic spell checking
+        // FR doesn't have a full FST dictionary, combine FR_COMMON_WORDS (9.7K) + FR_SPELLING (34K)
+        // This gives ~44K words which covers basic French vocabulary
         let checker = SpellChecker::new()
+            .with_words(FR_COMMON_WORDS.iter().copied())
             .with_words(FR_SPELLING.iter().copied())
             .with_skip_words(FR_IGNORE.iter().copied());
 
+        let total_words = FR_COMMON_WORDS.len() + FR_SPELLING.len();
         tracing::info!("FR spell checker enabled ({} dictionary words, {} skip words)",
-                      FR_SPELLING.len(), FR_IGNORE.len());
+                      total_words, FR_IGNORE.len());
         Some(checker)
     }
 
