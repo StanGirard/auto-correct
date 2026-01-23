@@ -8,6 +8,7 @@ use grammar_rs::checker::{
     ContractionChecker, ContextChecker,
     EN_PATTERN_RULES, FR_PATTERN_RULES,
     EN_REPLACE_RULES, FR_REPLACE_RULES,
+    EN_ANTIPATTERNS, FR_ANTIPATTERNS,
 };
 use std::sync::Arc;
 
@@ -60,8 +61,8 @@ impl AppState {
                 .with_english_rules()
                 .with_rule(EnglishConfusionRule)
         )
-        // Pattern-based rules (Aho-Corasick for speed)
-        .with_checker(AhoPatternRuleChecker::new(EN_PATTERN_RULES))
+        // Pattern-based rules (Aho-Corasick for speed) with antipattern filtering
+        .with_checker(AhoPatternRuleChecker::with_antipatterns(EN_PATTERN_RULES, EN_ANTIPATTERNS))
         // Simple replacements
         .with_checker(ReplaceRuleChecker::new(EN_REPLACE_RULES, "EN_REPLACE"))
         // Style checking (wordiness, redundancy) - uses default EN_STYLE_RULES
@@ -90,8 +91,8 @@ impl AppState {
                 .with_french_rules()
                 .with_rule(FrenchConfusionRule)
         )
-        // Pattern-based rules
-        .with_checker(AhoPatternRuleChecker::new(FR_PATTERN_RULES))
+        // Pattern-based rules with antipattern filtering
+        .with_checker(AhoPatternRuleChecker::with_antipatterns(FR_PATTERN_RULES, FR_ANTIPATTERNS))
         // Simple replacements
         .with_checker(ReplaceRuleChecker::new(FR_REPLACE_RULES, "FR_REPLACE"))
         // Default filters

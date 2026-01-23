@@ -7,12 +7,20 @@
 //! Two implementations are provided:
 //! - `PatternRuleChecker`: Simple O(rules × tokens) implementation
 //! - `AhoPatternRuleChecker`: Optimized O(tokens) using Aho-Corasick
+//!
+//! Antipattern support: Rules can have antipatterns - exceptions that prevent
+//! the rule from firing when matched. For example, "a one-time event" matches
+//! an antipattern for the A_AN rule, so it won't incorrectly suggest "an".
 
 use aho_corasick::AhoCorasick;
+use regex::Regex;
 use std::collections::HashMap;
+use std::sync::LazyLock;
 
 use crate::core::traits::Checker;
 use crate::core::{AnalyzedToken, CheckResult, Match, Severity, TokenKind};
+
+use crate::checker::data::{Antipattern, AntipatternToken};
 
 /// A pattern rule imported from LanguageTool
 #[derive(Debug, Clone)]
@@ -136,6 +144,7 @@ impl Checker for PatternRuleChecker {
 /// 1. Build an AC automaton with the first word of each pattern
 /// 2. Scan the text once to find candidate positions
 /// 3. Verify full patterns only at matched positions
+/// 4. Check antipatterns to filter false positives
 pub struct AhoPatternRuleChecker {
     /// Aho-Corasick automaton for first words
     first_word_ac: AhoCorasick,
@@ -146,6 +155,8 @@ pub struct AhoPatternRuleChecker {
     /// Maps first word (lowercase) -> index in first_words vec
     #[allow(dead_code)]
     word_to_idx: HashMap<String, usize>,
+    /// Antipatterns indexed by rule ID for fast lookup
+    antipatterns_by_rule: HashMap<String, Vec<&'static Antipattern>>,
 }
 
 impl AhoPatternRuleChecker {
@@ -154,6 +165,16 @@ impl AhoPatternRuleChecker {
     /// This builds the Aho-Corasick automaton from the first words of all patterns.
     /// The construction is O(R × W) where R is rules and W is average word length.
     pub fn new(rules: &'static [PatternRule]) -> Self {
+        Self::with_antipatterns(rules, &[])
+    }
+
+    /// Create a new AhoPatternRuleChecker with rules and antipatterns.
+    ///
+    /// Antipatterns are exceptions that prevent rules from firing in specific contexts.
+    pub fn with_antipatterns(
+        rules: &'static [PatternRule],
+        antipatterns: &'static [Antipattern],
+    ) -> Self {
         let mut first_words: Vec<String> = Vec::new();
         let mut word_to_idx: HashMap<String, usize> = HashMap::new();
         let mut first_word_to_rules: Vec<Vec<usize>> = Vec::new();
@@ -179,11 +200,21 @@ impl AhoPatternRuleChecker {
             .build(&first_words)
             .unwrap();
 
+        // Build antipattern lookup by rule ID
+        let mut antipatterns_by_rule: HashMap<String, Vec<&'static Antipattern>> = HashMap::new();
+        for ap in antipatterns {
+            antipatterns_by_rule
+                .entry(ap.rule_id.to_string())
+                .or_default()
+                .push(ap);
+        }
+
         Self {
             first_word_ac,
             first_word_to_rules,
             rules,
             word_to_idx,
+            antipatterns_by_rule,
         }
     }
 
@@ -226,6 +257,108 @@ impl AhoPatternRuleChecker {
             rule.suggestion.to_string()
         }
     }
+
+    /// Check if any antipattern matches at the given context.
+    ///
+    /// Returns true if an antipattern matches, meaning the rule should NOT fire.
+    fn matches_antipattern(
+        &self,
+        words: &[&AnalyzedToken],
+        match_start_idx: usize,
+        match_len: usize,
+        rule_id: &str,
+    ) -> bool {
+        // Get antipatterns for this rule
+        let Some(antipatterns) = self.antipatterns_by_rule.get(rule_id) else {
+            return false;
+        };
+
+        // Check each antipattern
+        for ap in antipatterns {
+            if self.check_single_antipattern(words, match_start_idx, match_len, ap) {
+                return true;
+            }
+        }
+
+        false
+    }
+
+    /// Check if a single antipattern matches at the context around a match.
+    ///
+    /// Antipatterns can overlap with the match position. We check all possible
+    /// alignments where the antipattern could overlap with the matched text.
+    fn check_single_antipattern(
+        &self,
+        words: &[&AnalyzedToken],
+        match_start_idx: usize,
+        match_len: usize,
+        antipattern: &Antipattern,
+    ) -> bool {
+        let ap_len = antipattern.tokens.len();
+        if ap_len == 0 {
+            return false;
+        }
+
+        // Try all starting positions where antipattern could overlap with match
+        // The antipattern could start before, at, or after the match start
+        let earliest_start = match_start_idx.saturating_sub(ap_len - 1);
+        let latest_start = match_start_idx + match_len - 1;
+
+        for start in earliest_start..=latest_start {
+            if start + ap_len > words.len() {
+                continue;
+            }
+
+            if self.antipattern_matches_at(words, start, antipattern) {
+                return true;
+            }
+        }
+
+        false
+    }
+
+    /// Check if an antipattern matches exactly at the given position.
+    fn antipattern_matches_at(
+        &self,
+        words: &[&AnalyzedToken],
+        start: usize,
+        antipattern: &Antipattern,
+    ) -> bool {
+        for (i, ap_token) in antipattern.tokens.iter().enumerate() {
+            let word = &words[start + i];
+            let word_text = word.token.text.to_lowercase();
+
+            // Check text match
+            if let Some(expected_text) = &ap_token.text {
+                let expected_lower = expected_text.to_lowercase();
+
+                // Handle regexp in text field (yes attribute)
+                if ap_token.regexp.as_deref() == Some("yes") {
+                    // Try to compile and match regex
+                    if let Ok(re) = Regex::new(&format!("(?i)^{}$", expected_lower)) {
+                        if !re.is_match(&word_text) {
+                            return false;
+                        }
+                    } else {
+                        // Fallback to exact match if regex fails
+                        if word_text != expected_lower {
+                            return false;
+                        }
+                    }
+                } else {
+                    // Exact match (case-insensitive)
+                    if word_text != expected_lower {
+                        return false;
+                    }
+                }
+            } else {
+                // No text means match any word (typically with postag constraint)
+                // Since we don't have full POS support yet, accept any word
+            }
+        }
+
+        true
+    }
 }
 
 impl Checker for AhoPatternRuleChecker {
@@ -265,6 +398,13 @@ impl Checker for AhoPatternRuleChecker {
                 for &rule_idx in &self.first_word_to_rules[ac_match.pattern().as_usize()] {
                     if let Some(span) = self.verify_full_pattern(&words, token_idx, rule_idx) {
                         let rule = &self.rules[rule_idx];
+                        let pattern_len = rule.pattern.len();
+
+                        // Check antipatterns - skip if any antipattern matches
+                        if self.matches_antipattern(&words, token_idx, pattern_len, rule.id) {
+                            continue;
+                        }
+
                         let matched_text = &text[span.clone()];
                         let suggestion = self.generate_suggestion(rule, matched_text);
 

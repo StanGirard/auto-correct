@@ -73,6 +73,12 @@ pub use data::{
     SynonymEntry, EN_SYNONYM_RULES, FR_SYNONYM_RULES,
     get_en_synonyms, get_fr_synonyms,
 };
+// Antipattern data (rule exceptions)
+pub use data::{
+    Antipattern, AntipatternToken,
+    EN_ANTIPATTERNS, FR_ANTIPATTERNS,
+    get_en_antipatterns, get_fr_antipatterns,
+};
 pub use pattern_rules::{AhoPatternRuleChecker, PatternRule, PatternRuleChecker};
 pub use replace_rules::ReplaceRuleChecker;
 pub use style_checker::StyleChecker;
