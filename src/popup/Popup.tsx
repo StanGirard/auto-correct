@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Settings, DEFAULT_SETTINGS } from '../shared/types'
+import { Settings, DEFAULT_SETTINGS, COMMON_RULES } from '../shared/types'
 import { getSettings, setSettings, removeFromDictionary, onSettingsChange } from '../shared/storage'
 import { checkConnection } from '../content/language-tool-client'
 
@@ -84,6 +84,22 @@ const BookIcon = () => (
   >
     <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
     <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+  </svg>
+)
+
+const SettingsIcon = () => (
+  <svg
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <circle cx="12" cy="12" r="3" />
+    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
   </svg>
 )
 
@@ -252,6 +268,238 @@ function DictionarySection({
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+// RULE TOGGLE ITEM COMPONENT
+// ════════════════════════════════════════════════════════════════════════════
+
+function RuleToggleItem({
+  rule,
+  isDisabled,
+  onToggle,
+}: {
+  rule: (typeof COMMON_RULES)[number]
+  isDisabled: boolean
+  onToggle: (ruleId: string, disabled: boolean) => void
+}) {
+  return (
+    <div
+      className="flex items-center justify-between px-4 py-2 transition-colors"
+      style={{ background: 'transparent' }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.background = 'var(--ac-border-soft)'
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = 'transparent'
+      }}
+    >
+      <div className="flex-1 pr-3">
+        <p className="text-sm" style={{ color: 'var(--ac-ink)' }}>
+          {rule.name}
+        </p>
+      </div>
+      <button
+        onClick={() => onToggle(rule.id, !isDisabled)}
+        className="relative w-9 h-5 rounded-full transition-colors flex-shrink-0"
+        style={{
+          background: isDisabled ? 'var(--ac-border)' : 'var(--ac-sage)',
+        }}
+      >
+        <span
+          className="absolute top-0.5 w-4 h-4 rounded-full transition-all"
+          style={{
+            background: 'var(--ac-paper)',
+            left: isDisabled ? '2px' : '18px',
+            boxShadow: 'var(--shadow-sm)',
+          }}
+        />
+      </button>
+    </div>
+  )
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// RULES SECTION COMPONENT
+// ════════════════════════════════════════════════════════════════════════════
+
+function RulesSection({
+  checkLevel,
+  disabledRules,
+  language,
+  onCheckLevelChange,
+  onRuleToggle,
+}: {
+  checkLevel: 'default' | 'picky'
+  disabledRules: string[]
+  language: 'auto' | 'fr' | 'en'
+  onCheckLevelChange: (level: 'default' | 'picky') => void
+  onRuleToggle: (ruleId: string, disabled: boolean) => void
+}) {
+  const [expanded, setExpanded] = useState(false)
+
+  // Filter rules based on language
+  const relevantRules = COMMON_RULES.filter(
+    (rule) => language === 'auto' || rule.languages.includes(language)
+  )
+
+  return (
+    <div
+      style={{
+        background: 'var(--ac-paper)',
+        borderRadius: 12,
+        border: '1px solid var(--ac-border-soft)',
+        overflow: 'hidden',
+      }}
+    >
+      {/* Header - clickable to expand/collapse */}
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center justify-between px-4 py-3 transition-colors"
+        style={{
+          background: expanded ? 'var(--ac-border-soft)' : 'transparent',
+        }}
+        onMouseEnter={(e) => {
+          if (!expanded) e.currentTarget.style.background = 'var(--ac-border-soft)'
+        }}
+        onMouseLeave={(e) => {
+          if (!expanded) e.currentTarget.style.background = 'transparent'
+        }}
+      >
+        <div className="flex items-center gap-3">
+          <div
+            className="w-8 h-8 rounded-lg flex items-center justify-center"
+            style={{ background: 'var(--ac-amber-soft)', color: 'var(--ac-amber)' }}
+          >
+            <SettingsIcon />
+          </div>
+          <div className="text-left">
+            <p className="text-sm font-medium" style={{ color: 'var(--ac-ink)' }}>
+              Regles de verification
+            </p>
+            <p className="text-xs" style={{ color: 'var(--ac-ink-muted)' }}>
+              {checkLevel === 'picky' ? 'Mode strict' : 'Mode standard'}
+              {disabledRules.length > 0 && ` - ${disabledRules.length} desactivee(s)`}
+            </p>
+          </div>
+        </div>
+        <ChevronIcon direction={expanded ? 'up' : 'down'} />
+      </button>
+
+      {/* Expanded content */}
+      {expanded && (
+        <div
+          style={{
+            borderTop: '1px solid var(--ac-border-soft)',
+          }}
+        >
+          {/* Check Level Toggle */}
+          <div
+            className="flex items-center justify-between px-4 py-3"
+            style={{ borderBottom: '1px solid var(--ac-border-soft)' }}
+          >
+            <div>
+              <p className="text-sm font-medium" style={{ color: 'var(--ac-ink)' }}>
+                Mode strict
+              </p>
+              <p className="text-xs" style={{ color: 'var(--ac-ink-muted)' }}>
+                Verification plus approfondie
+              </p>
+            </div>
+            <button
+              onClick={() => onCheckLevelChange(checkLevel === 'picky' ? 'default' : 'picky')}
+              className="relative w-10 h-6 rounded-full transition-colors"
+              style={{
+                background: checkLevel === 'picky' ? 'var(--ac-ink)' : 'var(--ac-border)',
+              }}
+            >
+              <span
+                className="absolute top-1 w-4 h-4 rounded-full transition-all"
+                style={{
+                  background: 'var(--ac-paper)',
+                  left: checkLevel === 'picky' ? '22px' : '4px',
+                  boxShadow: 'var(--shadow-sm)',
+                }}
+              />
+            </button>
+          </div>
+
+          {/* Rules List - Grouped by language */}
+          <div className="py-1">
+            {/* Common rules (FR + EN) */}
+            {relevantRules.filter((r) => r.languages.length > 1).length > 0 && (
+              <>
+                <p
+                  className="px-4 py-2 text-xs font-medium"
+                  style={{ color: 'var(--ac-ink-muted)' }}
+                >
+                  Commun
+                </p>
+                {relevantRules
+                  .filter((r) => r.languages.length > 1)
+                  .map((rule) => (
+                    <RuleToggleItem
+                      key={rule.id}
+                      rule={rule}
+                      isDisabled={disabledRules.includes(rule.id)}
+                      onToggle={onRuleToggle}
+                    />
+                  ))}
+              </>
+            )}
+
+            {/* French-only rules */}
+            {(language === 'auto' || language === 'fr') &&
+              relevantRules.filter((r) => r.languages.length === 1 && r.languages[0] === 'fr')
+                .length > 0 && (
+                <>
+                  <p
+                    className="px-4 py-2 text-xs font-medium"
+                    style={{ color: 'var(--ac-ink-muted)' }}
+                  >
+                    Francais
+                  </p>
+                  {relevantRules
+                    .filter((r) => r.languages.length === 1 && r.languages[0] === 'fr')
+                    .map((rule) => (
+                      <RuleToggleItem
+                        key={rule.id}
+                        rule={rule}
+                        isDisabled={disabledRules.includes(rule.id)}
+                        onToggle={onRuleToggle}
+                      />
+                    ))}
+                </>
+              )}
+
+            {/* English-only rules */}
+            {(language === 'auto' || language === 'en') &&
+              relevantRules.filter((r) => r.languages.length === 1 && r.languages[0] === 'en')
+                .length > 0 && (
+                <>
+                  <p
+                    className="px-4 py-2 text-xs font-medium"
+                    style={{ color: 'var(--ac-ink-muted)' }}
+                  >
+                    Anglais
+                  </p>
+                  {relevantRules
+                    .filter((r) => r.languages.length === 1 && r.languages[0] === 'en')
+                    .map((rule) => (
+                      <RuleToggleItem
+                        key={rule.id}
+                        rule={rule}
+                        isDisabled={disabledRules.includes(rule.id)}
+                        onToggle={onRuleToggle}
+                      />
+                    ))}
+                </>
+              )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 // MAIN POPUP COMPONENT
 // ════════════════════════════════════════════════════════════════════════════
 
@@ -296,6 +544,27 @@ export function Popup() {
     setLocalSettings(updated)
   }
 
+  async function handleCheckLevelChange(level: 'default' | 'picky') {
+    const updated = await setSettings({ checkLevel: level })
+    setLocalSettings(updated)
+  }
+
+  async function handleRuleToggle(ruleId: string, disabled: boolean) {
+    const currentRules = settings.disabledRules || []
+    let newRules: string[]
+
+    if (disabled) {
+      // Add rule to disabled list
+      newRules = [...currentRules, ruleId]
+    } else {
+      // Remove rule from disabled list
+      newRules = currentRules.filter((r) => r !== ruleId)
+    }
+
+    const updated = await setSettings({ disabledRules: newRules })
+    setLocalSettings(updated)
+  }
+
   const languageOptions = [
     { value: 'auto' as const, label: 'Auto', flag: <FlagAuto /> },
     { value: 'fr' as const, label: 'Francais', flag: <FlagFR /> },
@@ -311,7 +580,7 @@ export function Popup() {
 
   return (
     <div
-      className="w-[380px] min-h-[200px] flex flex-col"
+      className="w-[380px] min-h-[200px] max-h-[600px] flex flex-col"
       style={{ background: 'var(--ac-cream)' }}
     >
       {/* ══════════════════════════════════════════════════════════════════════
@@ -479,6 +748,17 @@ export function Popup() {
             PERSONAL DICTIONARY
             ───────────────────────────────────────────────────────────────────── */}
         <DictionarySection words={settings.personalDictionary} onRemoveWord={handleRemoveWord} />
+
+        {/* ─────────────────────────────────────────────────────────────────────
+            RULES CONFIGURATION
+            ───────────────────────────────────────────────────────────────────── */}
+        <RulesSection
+          checkLevel={settings.checkLevel || 'picky'}
+          disabledRules={settings.disabledRules || []}
+          language={settings.language}
+          onCheckLevelChange={handleCheckLevelChange}
+          onRuleToggle={handleRuleToggle}
+        />
       </div>
 
       {/* ══════════════════════════════════════════════════════════════════════

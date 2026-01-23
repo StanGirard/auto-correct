@@ -301,7 +301,13 @@ async function handleInput(field: ManagedField): Promise<void> {
   // For large documents, only check text around cursor
   const { text: textToCheck, offset: textOffset } = getTextAroundCursor(field.element, 500)
 
-  const matches = await checkText(textToCheck, currentSettings.language, currentSettings.apiUrl)
+  const matches = await checkText(
+    textToCheck,
+    currentSettings.language,
+    currentSettings.apiUrl,
+    currentSettings.checkLevel,
+    currentSettings.disabledRules
+  )
 
   // Adjust match offsets to account for the text offset
   const adjustedMatches = matches.map((match) => ({

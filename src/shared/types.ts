@@ -37,6 +37,8 @@ export interface Settings {
   language: 'auto' | 'fr' | 'en'
   apiUrl: string
   personalDictionary: string[]
+  checkLevel: 'default' | 'picky'
+  disabledRules: string[]
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -44,7 +46,38 @@ export const DEFAULT_SETTINGS: Settings = {
   language: 'auto',
   apiUrl: 'https://languagetool-autocorrect.fly.dev',
   personalDictionary: [],
+  checkLevel: 'default',
+  disabledRules: [],
 }
+
+// Common rules that users can toggle
+export const COMMON_RULES = [
+  {
+    id: 'UPPERCASE_SENTENCE_START',
+    name: 'Majuscule en debut de phrase',
+    languages: ['fr', 'en'],
+  },
+  {
+    id: 'COMMA_PARENTHESIS_WHITESPACE',
+    name: 'Espaces et ponctuation',
+    languages: ['fr', 'en'],
+  },
+  {
+    id: 'DOUBLES_ESPACES',
+    name: 'Doubles espaces',
+    languages: ['fr'],
+  },
+  {
+    id: 'FRENCH_WORD_REPEAT_RULE',
+    name: 'Mots repetes',
+    languages: ['fr'],
+  },
+  {
+    id: 'CONSECUTIVE_SPACES',
+    name: 'Doubles espaces',
+    languages: ['en'],
+  },
+] as const
 
 export type MessageType =
   | { type: 'GET_SETTINGS' }

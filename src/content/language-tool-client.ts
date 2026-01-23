@@ -44,8 +44,13 @@ async function throttledRequest<T>(fn: () => Promise<T>): Promise<T> {
   })
 }
 
-function getCacheKey(text: string, language: string): string {
-  return `${language}:${text}`
+function getCacheKey(
+  text: string,
+  language: string,
+  checkLevel: string,
+  disabledRules: string[]
+): string {
+  return `${language}:${checkLevel}:${disabledRules.join(',')}:${text}`
 }
 
 function cleanCache(): void {
@@ -65,14 +70,16 @@ function cleanCache(): void {
 export async function checkText(
   text: string,
   language: 'auto' | 'fr' | 'en',
-  apiUrl: string
+  apiUrl: string,
+  checkLevel: 'default' | 'picky' = 'picky',
+  disabledRules: string[] = []
 ): Promise<LanguageToolMatch[]> {
   if (text.trim().length < 3) {
     return []
   }
 
   const langParam = language === 'auto' ? 'auto' : language === 'fr' ? 'fr-FR' : 'en-US'
-  const cacheKey = getCacheKey(text, langParam)
+  const cacheKey = getCacheKey(text, langParam, checkLevel, disabledRules)
 
   // Check cache first
   const cached = cache.get(cacheKey)
@@ -91,17 +98,24 @@ export async function checkText(
     const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT)
 
     try {
+      const params: Record<string, string> = {
+        text,
+        language: langParam,
+        preferredVariants: 'fr-FR,en-US',
+        level: checkLevel,
+      }
+
+      // Only add disabledRules if there are any
+      if (disabledRules.length > 0) {
+        params.disabledRules = disabledRules.join(',')
+      }
+
       const response = await fetch(`${apiUrl}/v2/check`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
-        body: new URLSearchParams({
-          text,
-          language: langParam,
-          preferredVariants: 'fr-FR,en-US',
-          level: 'picky',
-        }),
+        body: new URLSearchParams(params),
         signal: controller.signal,
       })
 
