@@ -11,7 +11,7 @@
 
 ---
 
-## 1. Antipatterns (Extraction: ✅ 100% | Intégration: 0%)
+## 1. Antipatterns ✅ COMPLET
 
 ### Description
 Les antipatterns sont des exceptions aux règles - des patterns qui ressemblent à des erreurs mais sont corrects.
@@ -21,7 +21,13 @@ Les antipatterns sont des exceptions aux règles - des patterns qui ressemblent 
 - **Fichiers générés:**
   - `src/checker/data/en_antipatterns.rs`
   - `src/checker/data/fr_antipatterns.rs`
-- **Prochaine étape:** Intégrer dans `AhoPatternRuleChecker` pour filtrer les faux positifs
+- **Intégration:** `AhoPatternRuleChecker.with_antipatterns()` filtre les faux positifs
+
+### Exemple
+```rust
+// "a one-time event" ne déclenche plus l'erreur A_AN grâce à l'antipattern
+AhoPatternRuleChecker::with_antipatterns(EN_PATTERN_RULES, EN_ANTIPATTERNS)
+```
 
 ### Exemple
 ```xml
