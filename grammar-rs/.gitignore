@@ -1,0 +1,15 @@
+# Build artifacts
+/target/
+
+# LanguageTool cache (cloned by sync-lt)
+.cache/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
