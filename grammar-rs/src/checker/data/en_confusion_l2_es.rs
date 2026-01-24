@@ -1,5 +1,5 @@
 //! Auto-generated L2 confusion pairs for Spanish native speakers writing EN
-//! Synced: 2026-01-24T12:08:47.345875+00:00
+//! Synced: 2026-01-24T12:31:42.433468+00:00
 //! Total pairs: 26
 //! DO NOT EDIT MANUALLY - Run `cargo run --bin sync-lt` to update
 //!

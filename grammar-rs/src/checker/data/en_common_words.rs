@@ -1,5 +1,5 @@
 //! Auto-generated common words for EN from LanguageTool
-//! Synced: 2026-01-24T12:08:47.219906+00:00
+//! Synced: 2026-01-24T12:31:42.303514+00:00
 //! Total words: 9890
 //! DO NOT EDIT MANUALLY - Run `cargo run --bin sync-lt` to update
 //!

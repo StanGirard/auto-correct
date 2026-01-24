@@ -1,5 +1,5 @@
 //! Auto-generated L2 confusion pairs for Dutch native speakers writing EN
-//! Synced: 2026-01-24T12:08:47.347957+00:00
+//! Synced: 2026-01-24T12:31:42.435967+00:00
 //! Total pairs: 11
 //! DO NOT EDIT MANUALLY - Run `cargo run --bin sync-lt` to update
 //!

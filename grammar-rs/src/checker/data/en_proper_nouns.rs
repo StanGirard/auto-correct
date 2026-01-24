@@ -1,5 +1,5 @@
 //! Auto-generated proper nouns for EN from LanguageTool
-//! Synced: 2026-01-24T12:08:47.276738+00:00
+//! Synced: 2026-01-24T12:31:42.362372+00:00
 //! Total entries: 5537
 //! DO NOT EDIT MANUALLY - Run `cargo run --bin sync-lt` to update
 //!

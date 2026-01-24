@@ -1,6 +1,6 @@
 //! Auto-generated POS pattern rules for EN from LanguageTool
 //! Source: en/grammar.xml
-//! Synced: 2026-01-24T12:08:47.189739+00:00
+//! Synced: 2026-01-24T12:31:42.271481+00:00
 //! Total rules: 94
 //! DO NOT EDIT MANUALLY - Run `cargo run --bin sync-lt` to update
 //!

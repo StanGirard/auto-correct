@@ -1,5 +1,5 @@
 //! Auto-generated disambiguation POS rules for EN from LanguageTool
-//! Synced: 2026-01-24T12:08:47.729480+00:00
+//! Synced: 2026-01-24T12:31:42.812653+00:00
 //! Total: 24 single-token rules
 //! DO NOT EDIT MANUALLY - Run `cargo run --bin sync-lt` to update
 //!

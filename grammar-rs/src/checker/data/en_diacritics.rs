@@ -1,5 +1,5 @@
 //! Auto-generated diacritics rules for EN from LanguageTool
-//! Synced: 2026-01-24T12:08:47.212435+00:00
+//! Synced: 2026-01-24T12:31:42.295907+00:00
 //! Total rules: 1219
 //! DO NOT EDIT MANUALLY - Run `cargo run --bin sync-lt` to update
 //!
