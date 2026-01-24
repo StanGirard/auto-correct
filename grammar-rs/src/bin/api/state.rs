@@ -13,6 +13,8 @@ use grammar_rs::checker::{
     EN_ANTIPATTERNS, FR_ANTIPATTERNS,
     EN_POS_PATTERN_RULES, FR_POS_PATTERN_RULES,
     EN_ADDED_WORDS,
+    // Number words for POS tagging
+    EN_NUMBERS, FR_NUMBERS,
     // Spelling skip lists and dictionaries
     EN_IGNORE, EN_PROPER_NOUNS,
     FR_IGNORE, FR_SPELLING, FR_COMMON_WORDS,
@@ -23,12 +25,15 @@ use grammar_rs::dictionary::FstDictionary;
 use grammar_rs::core::PosTag;
 use std::sync::Arc;
 use std::path::Path;
+use moka::future::Cache;
+use crate::types::{CacheKey, LanguageToolResponse};
 
 /// Application state shared across all requests
 pub struct AppState {
     pub en_pipeline: Arc<Pipeline>,
     pub fr_pipeline: Arc<Pipeline>,
     pub language_detector: LanguageDetector,
+    pub cache: Cache<CacheKey, Arc<LanguageToolResponse>>,
 }
 
 impl AppState {
@@ -43,12 +48,30 @@ impl AppState {
         tracing::info!("Initializing language detector...");
         let language_detector = LanguageDetector::new();
 
+        // Initialize cache with configurable settings
+        let cache_size = std::env::var("CACHE_SIZE")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(10_000);
+
+        let cache_ttl = std::env::var("CACHE_TTL_SECS")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(3600); // 1 hour default
+
+        let cache = Cache::builder()
+            .max_capacity(cache_size as u64)
+            .time_to_live(std::time::Duration::from_secs(cache_ttl))
+            .build();
+
+        tracing::info!("Cache initialized (capacity: {}, TTL: {}s)", cache_size, cache_ttl);
         tracing::info!("Application state initialized");
 
         Self {
             en_pipeline: Arc::new(en_pipeline),
             fr_pipeline: Arc::new(fr_pipeline),
             language_detector,
+            cache,
         }
     }
 
@@ -63,7 +86,22 @@ impl AppState {
             }
         }
 
+        // Load number words (twenty-one, thirty-five, etc.) as CD (cardinal number)
+        tagger.load_from_lines(EN_NUMBERS.iter().copied());
+
         tracing::debug!("EN POS tagger loaded with {} dictionary entries + suffix heuristics",
+                       tagger.dictionary_size());
+        tagger
+    }
+
+    /// Create a French POS tagger with number words
+    fn create_fr_pos_tagger() -> PosTagger {
+        let mut tagger = PosTagger::new();
+
+        // Load French number words (vingt-et-un, trente-deux, etc.) as CD (cardinal number)
+        tagger.load_from_lines(FR_NUMBERS.iter().copied());
+
+        tracing::debug!("FR POS tagger loaded with {} dictionary entries + suffix heuristics",
                        tagger.dictionary_size());
         tagger
     }
@@ -176,9 +214,12 @@ impl AppState {
 
     /// Create the French pipeline with all checkers
     fn create_fr_pipeline() -> Pipeline {
+        // Use POS tagger for better rule matching (includes French number words)
+        let pos_tagger = Self::create_fr_pos_tagger();
+
         let mut pipeline = Pipeline::new(
             SimpleTokenizer::new(),
-            PassthroughAnalyzer::new(),
+            pos_tagger,
         )
         // Basic French grammar rules + confusion pairs
         .with_checker(

@@ -148,13 +148,22 @@
 
 ---
 
-## 9. Numbers Rules - 🔶 Données non intégrées
+## 9. Numbers POS Tagging - ✅ COMPLÉTÉ
 
-**Description:** Règles spécifiques aux nombres (format, cohérence).
+**Description:** Mots numériques composés taggés comme CD (cardinal number) dans le POS tagger.
 
-**État:** Données extraites (`en_numbers.rs`), non intégrées.
+**État:** Intégré aux pipelines EN et FR.
 
-**Priorité:** BASSE
+| Langue | Fichier | Mots | Exemples |
+|--------|---------|------|----------|
+| EN | `en_numbers.rs` | 72 | twenty-one, thirty-five, ninety-nine |
+| FR | `fr_numbers.rs` | 79 | vingt-et-un, quatre-vingts, soixante-dix-sept |
+
+**Intégration:** `tagger.load_from_lines(EN_NUMBERS.iter().copied())`
+
+**Impact:** Améliore la précision des règles POS comme `TOO_CARDINAL_NUMBER` et `NUMBER_OF_NNS`.
+
+**Priorité:** ~~BASSE~~ TERMINÉ
 
 ---
 
@@ -162,10 +171,10 @@
 
 | Catégorie | Features | Priorité | État |
 |-----------|----------|----------|------|
-| ✅ Complété | FR pipeline, ProhibitChecker, L2ConfusionChecker FR, SpellChecker, Proper Nouns, Disambig Skip | - | Intégré |
+| ✅ Complété | FR pipeline, ProhibitChecker, L2ConfusionChecker FR, SpellChecker, Proper Nouns, Disambig Skip, Numbers POS | - | Intégré |
 | 🔶 Partiel | Disambiguation/POS (skip patterns OK, contexte manquant) | BASSE | Skip patterns intégrés |
-| ❌ Complexe | N-gram models, Disambiguation contextuelles | BASSE | Nécessite ML/données volumineuses |
-| ⏸️ Différé | Multiwords, Numbers | BASSE | Nécessite POS avancé |
+| ❌ Complexe | Disambiguation contextuelles | BASSE | Nécessite ML |
+| ⏸️ Différé | Multiwords | BASSE | Nécessite POS avancé |
 
 **Note:**
 - **Disambiguation:** Skip patterns extraits et intégrés, règles contextuelles non implémentées

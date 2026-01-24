@@ -145,6 +145,10 @@ pub mod en_confusion_l2_fr;
 pub mod en_confusion_l2_nl;
 pub mod en_added;
 pub mod en_numbers;
+pub mod fr_numbers;
+
+pub use en_numbers::{EN_NUMBERS, is_en_numbers};
+pub use fr_numbers::{FR_NUMBERS, is_fr_numbers};
 
 pub use en_word_definitions::{WordDefinition, EN_WORD_DEFINITIONS, get_en_word_definition};
 

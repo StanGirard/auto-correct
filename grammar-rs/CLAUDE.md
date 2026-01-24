@@ -217,6 +217,15 @@ cargo run --bin sync-lt -- --extract-ngrams --language fr
 - `--output <path>`: Répertoire de sortie
 - `--language <lang>`: en ou fr
 
+## ✅ COMPLETED - Numbers POS Tagging (EN + FR)
+**Description:** Mots numériques composés taggés comme CD (cardinal number) dans le POS tagger.
+**Stats:**
+- EN: 72 mots (twenty-one, thirty-five, ninety-nine, etc.)
+- FR: 79 mots (vingt-et-un, quatre-vingts, soixante-dix-sept, etc.)
+**Fichiers:** `en_numbers.rs`, `fr_numbers.rs`
+**Intégration:** Chargés dans les POS taggers via `tagger.load_from_lines()`
+**Impact:** Améliore la précision des règles POS comme `TOO_CARDINAL_NUMBER` et `NUMBER_OF_NNS`.
+
 ---
 
 # Features Différées

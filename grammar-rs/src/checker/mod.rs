@@ -93,6 +93,11 @@ pub use data::{
 pub use data::{
     PosTaggedWord, EN_ADDED_WORDS, get_en_added_word,
 };
+// Number words for POS tagging
+pub use data::{
+    EN_NUMBERS, is_en_numbers,
+    FR_NUMBERS, is_fr_numbers,
+};
 // Spelling skip lists
 pub use data::{
     EN_IGNORE, is_en_ignore,
