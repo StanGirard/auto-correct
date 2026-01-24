@@ -10,6 +10,7 @@
 
 use crate::core::traits::Checker;
 use crate::core::{AnalyzedToken, CheckResult, Match, Severity, TokenKind};
+use crate::morphology::{FrenchMorphology, transform_pos};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::sync::OnceLock;
@@ -525,13 +526,48 @@ impl DynamicPatternChecker {
                         index,
                         regexp_match,
                         regexp_replace,
+                        postag,
+                        postag_replace,
                         case_conversion,
-                        ..
                     } => {
                         // index is 1-based in LanguageTool
                         if *index > 0 && *index <= matched_tokens.len() {
                             let token = matched_tokens[*index - 1];
                             let mut text = token.token.text.to_string();
+
+                            // Apply POS-based morphological transformation if present
+                            if let (Some(pos_pattern), Some(pos_replace)) = (postag, postag_replace) {
+                                if let Some(ref current_pos) = token.pos {
+                                    // Get the current POS as string
+                                    let pos_str = current_pos.as_str();
+
+                                    // Transform the POS tag using the pattern/replace
+                                    if let Some(target_tags) = transform_pos(pos_str, pos_pattern, pos_replace) {
+                                        // Get the lemma from morphology or token
+                                        let morph = FrenchMorphology::load();
+                                        let lemma = token.lemma.as_deref()
+                                            .or_else(|| morph.get_lemma(&text))
+                                            .unwrap_or(&text);
+
+                                        // Try to synthesize the new form
+                                        for target_tag in &target_tags {
+                                            // First try exact match
+                                            let forms = morph.synthesize(lemma, target_tag);
+                                            if !forms.is_empty() {
+                                                text = forms[0].to_string();
+                                                break;
+                                            }
+
+                                            // Try regex match if exact doesn't work
+                                            let regex_forms = morph.synthesize_regex(lemma, target_tag);
+                                            if !regex_forms.is_empty() {
+                                                text = regex_forms[0].to_string();
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
 
                             // Apply regex replacement if present
                             if let (Some(pattern), Some(replacement)) = (regexp_match, regexp_replace) {

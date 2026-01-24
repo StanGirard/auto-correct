@@ -605,6 +605,71 @@ fn api_fr_spell_checker_detects_misspelling() {
 }
 
 // ============================================================================
+// Morphology Tests
+// ============================================================================
+
+#[test]
+fn api_fr_morphology_synthesis_basic() {
+    use grammar_rs::morphology::FrenchMorphology;
+
+    let morph = FrenchMorphology::load();
+
+    // Test determiner transformation: le (D m s) -> la (D f s)
+    let forms = morph.synthesize("le", "D f s");
+    assert!(forms.iter().any(|f| *f == "la"),
+        "Expected 'la' for lemma 'le' with POS 'D f s', got: {:?}", forms);
+
+    // Test adjective transformation: grand (J m s) -> grande (J f s)
+    let forms = morph.synthesize("grand", "J f s");
+    assert!(forms.iter().any(|f| *f == "grande"),
+        "Expected 'grande' for lemma 'grand' with POS 'J f s', got: {:?}", forms);
+
+    // Test article: un -> une
+    let forms = morph.synthesize("un", "D f s");
+    assert!(forms.iter().any(|f| *f == "une"),
+        "Expected 'une' for lemma 'un' with POS 'D f s', got: {:?}", forms);
+}
+
+#[test]
+fn api_fr_morphology_analysis_basic() {
+    use grammar_rs::morphology::FrenchMorphology;
+
+    let morph = FrenchMorphology::load();
+
+    // Test verb analysis
+    let readings = morph.analyze("mange");
+    assert!(!readings.is_empty(), "Expected readings for 'mange'");
+    assert!(readings.iter().any(|e| e.lemma == "manger"),
+        "Expected lemma 'manger' for form 'mange', got: {:?}",
+        readings.iter().map(|e| &e.lemma).collect::<Vec<_>>());
+
+    // Test adjective analysis
+    let readings = morph.analyze("grande");
+    assert!(!readings.is_empty(), "Expected readings for 'grande'");
+    assert!(readings.iter().any(|e| e.lemma == "grand"),
+        "Expected lemma 'grand' for form 'grande'");
+}
+
+#[test]
+fn api_fr_morphology_pos_transform() {
+    use grammar_rs::morphology::transform_pos;
+
+    // Test determiner gender change
+    let result = transform_pos("D m s", "(D|J) .*", "$1 f s");
+    assert!(result.is_some());
+    let targets = result.unwrap();
+    assert!(targets.contains(&"D f s".to_string()),
+        "Expected 'D f s' in targets, got: {:?}", targets);
+
+    // Test adjective gender change
+    let result = transform_pos("J m s", "(J) .*", "$1 f s");
+    assert!(result.is_some());
+    let targets = result.unwrap();
+    assert!(targets.contains(&"J f s".to_string()),
+        "Expected 'J f s' in targets, got: {:?}", targets);
+}
+
+// ============================================================================
 // Performance Sanity Check
 // ============================================================================
 

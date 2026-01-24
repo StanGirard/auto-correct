@@ -1,12 +1,12 @@
 # Grammar-RS: Features Manquantes
 
-> **État actuel:** ~70% des règles grammar.xml extraites (patterns simples + complexes)
+> **État actuel:** ~95% des règles grammar.xml FR extraites (patterns + morphologie)
 >
 > **Performance:** grammar-rs ~9ms vs LanguageTool ~1.4s (~150x plus rapide)
 >
-> **Principale lacune:** Unification + Suggestions dynamiques (~30% des règles restantes)
+> **Principale lacune:** Morphologie EN (FR complète via Lefff)
 >
-> **Dernière mise à jour:** 2026-01-24 - Ajout documentation Complex Pattern Rules
+> **Dernière mise à jour:** 2026-01-24 - Ajout morphologie française (Lefff 602K formes)
 
 ---
 
@@ -203,11 +203,14 @@ cargo run --bin sync-lt -- --extract-ngrams --language en
   - Références `\N` aux tokens matchés
   - Transformations regex (`regexp_match`/`regexp_replace`)
   - Conversion de casse (`alllower`, `startupper`, etc.)
-- 🔶 Unification (`<unify>`): **PARTIELLEMENT IMPLÉMENTÉ** (14 règles FR)
+- ✅ Unification (`<unify>`): **IMPLÉMENTÉ** (14 règles FR)
   - Parser `<unify>` et `<feature>` dans sync-lt
   - Validation genre/nombre dans DynamicPatternChecker
-  - Limitation: POS tagger ne fournit pas toujours genre+nombre complets
-- ⏸️ Transformations POS (`postag_replace`): non supporté (nécessite morphologie)
+- ✅ Transformations POS (`postag_replace`): **IMPLÉMENTÉ** via Lefff (1,130 règles FR)
+  - Module morphologie: `src/morphology/` avec FrenchMorphology + transform_pos
+  - Données Lefff: 602K formes fléchies (`data/morphology/fr_lefff.tsv`, 19 MB)
+  - Synthèse: lemme + POS cible → forme fléchie
+  - Limitation: Dépend de la couverture Lefff (très bonne pour FR)
 
 **Couverture actuelle:**
 | Source | Règles FR | Règles EN | Couverture |
@@ -216,26 +219,21 @@ cargo run --bin sync-lt -- --extract-ngrams --language en
 | Patterns simples (AhoPatternRuleChecker) | 170 | 394 | ~5% |
 | POS patterns (PosPatternChecker) | 25 | 94 | ~2% |
 | **Complex patterns (DynamicPatternChecker)** | **1,852** | **2,345** | **~80%** |
-| **Suggestions dynamiques** | **~700** | **~750** | ✅ Base implémentée |
-| **Unification (accord)** | **14** | **0** | 🔶 FR only |
+| **Suggestions dynamiques** | **~700** | **~750** | ✅ Implémentée |
+| **Unification (accord)** | **14** | **0** | ✅ FR only |
+| **postag_replace (morphologie)** | **1,130** | **0** | ✅ FR only (Lefff) |
 | Confusion pairs | 101 | 1,363 | ✅ Complet |
 | Antipatterns | 216 | 1,054 | ✅ Complet |
-| **Couverture règles pattern** | **~85%** | **~75%** | - |
+| **Couverture règles pattern** | **~95%** | **~75%** | - |
 
 **Fichiers:**
 - `src/checker/dynamic_pattern_checker.rs` - Checker runtime
-- `src/checker/data/en_complex_patterns.json` - 2,161 règles EN (~8 MB)
-- `src/checker/data/fr_complex_patterns.json` - 845 règles FR (~3.5 MB)
+- `src/checker/data/en_complex_patterns.json` - 2,345 règles EN (~8 MB)
+- `src/checker/data/fr_complex_patterns.json` - 1,852 règles FR (~5 MB)
+- `src/morphology/` - Module morphologie FR (Lefff)
+- `data/morphology/fr_lefff.tsv` - 602K formes fléchies (19 MB)
 
-**Fonctionnalités manquantes:**
-
-1. **Transformations POS** (`postag_replace`):
-   ```xml
-   <suggestion><match no="1" postag="V.*:3s" postag_replace="V.*:2s"/></suggestion>
-   <!-- Nécessite un lemmatizer/morphological generator -->
-   ```
-
-**Priorité:** MOYENNE (suggestions dynamiques implémentées, unification et transformations POS manquants)
+**Priorité:** ~~MOYENNE~~ TERMINÉ pour FR (morphologie intégrée)
 
 ---
 
@@ -243,9 +241,9 @@ cargo run --bin sync-lt -- --extract-ngrams --language en
 
 | Catégorie | Features | Priorité | État |
 |-----------|----------|----------|------|
-| ✅ Complété | FR pipeline, ProhibitChecker, L2ConfusionChecker FR, SpellChecker, Proper Nouns, Disambig Skip, Numbers POS, DynamicPatternChecker, **Suggestions dynamiques** | - | Intégré |
+| ✅ Complété | FR pipeline, ProhibitChecker, L2ConfusionChecker FR, SpellChecker, Proper Nouns, Disambig Skip, Numbers POS, DynamicPatternChecker, Suggestions dynamiques, **Morphologie FR (Lefff)** | - | Intégré |
 | 🔶 Partiel | Disambiguation/POS (skip patterns OK, contexte manquant) | BASSE | Skip patterns intégrés |
-| 🔶 Partiel | Complex Pattern Rules (regex/skip/suggestions/unification OK, POS transform manquant) | MOYENNE | 4,197 règles (grammar.xml + style.xml) |
+| ✅ Complété | Complex Pattern Rules FR (regex/skip/suggestions/unification/postag_replace) | - | 4,197 règles + 1,130 avec morphologie |
 | ❌ Complexe | Disambiguation contextuelles | BASSE | Nécessite ML |
 | ⏸️ Différé | Multiwords | BASSE | Nécessite POS avancé |
 
@@ -253,7 +251,7 @@ cargo run --bin sync-lt -- --extract-ngrams --language en
 - **Disambiguation:** Skip patterns extraits et intégrés, règles contextuelles non implémentées
 - **N-gram:** ✅ Implémenté avec format compact et memory-mapping
 - **SpellChecker:** ✅ Intégré avec FST 370K mots EN + 34K mots FR + skip patterns disambiguation
-- **Complex Pattern Rules:** 🔶 DynamicPatternChecker implémenté (2,345 EN + 1,852 FR = 4,197 total) avec suggestions dynamiques et unification FR. Transformations POS manquantes.
+- **Complex Pattern Rules:** ✅ DynamicPatternChecker implémenté (2,345 EN + 1,852 FR = 4,197 total) avec suggestions dynamiques, unification FR, et **morphologie FR (postag_replace)** via Lefff (602K formes).
 
 ---
 

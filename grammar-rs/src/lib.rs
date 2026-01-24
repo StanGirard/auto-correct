@@ -37,6 +37,7 @@ pub mod lang_detect;
 pub mod filter;
 pub mod lucene;
 pub mod language_model;
+pub mod morphology;
 
 /// Pre-warm all lazy statics to avoid first-call latency
 ///
@@ -73,6 +74,9 @@ pub fn warm_up() {
     let fr_checker = CompoundWordChecker::french();
     let _ = en_checker.check("air plane", &[]);
     let _ = fr_checker.check("aller retour", &[]);
+
+    // Force initialization of French morphology
+    let _ = morphology::FrenchMorphology::load();
 }
 
 /// Prelude - importe tout ce dont tu as besoin

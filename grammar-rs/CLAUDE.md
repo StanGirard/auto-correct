@@ -268,11 +268,33 @@ Supporte les fonctionnalités avancées de grammar.xml:
 - Règles avec regex sur tokens (mots multiples via `|`)
 - Suggestions calculées dynamiquement à partir des tokens matchés
 
-**Impact:** Augmente la couverture des règles grammar.xml de ~35% à ~70%
+**Impact:** Augmente la couverture des règles grammar.xml de ~35% à ~95% FR
+
+## ✅ COMPLETED - French Morphology (Lefff)
+**Description:** Génération morphologique française pour `postag_replace` suggestions.
+**Stats:**
+- Lefff 3.5: 602,650 formes fléchies (verbes, noms, adjectifs, déterminants)
+- 1,130 règles FR utilisent `postag_replace` (maintenant fonctionnelles)
+**Fichiers:**
+- `src/morphology/mod.rs` - Module racine
+- `src/morphology/french.rs` - FrenchMorphology (analyse + synthèse)
+- `src/morphology/pos_transform.rs` - Transformation POS regex ($1 f s, etc.)
+- `data/morphology/fr_lefff.tsv` - Données Lefff (19 MB)
+- `scripts/download_lefff.py` - Script d'extraction depuis HuggingFace
+**Intégration:** Utilisé dans `DynamicPatternChecker.generate_dynamic_suggestions()` pour les suggestions avec `postag_replace`.
+**Exemples:**
+- `le` (D m s) → `la` (D f s) via lemme "le" + synthèse
+- `grand` (J m s) → `grande` (J f s)
+- `mange` → lemme "manger" pour conjugaison
 
 ---
 
 # Features Différées
+
+## ⏸️ DEFERRED - English Morphology
+**Description:** Génération morphologique anglaise pour `postag_replace` suggestions EN.
+**Raison:** La majorité des règles EN n'utilisent pas `postag_replace` (moins d'inflexion en anglais).
+**Alternative actuelle:** Les suggestions statiques et regex couvrent la plupart des cas EN.
 
 ## ⏸️ DEFERRED - Hunspell / Morphologie Avancée
 **Description:** Spell-checking morphologique avec lemmatisation et affixes.
