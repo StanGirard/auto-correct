@@ -12,6 +12,11 @@
     "storage",
     "activeTab"
   ],
+  "host_permissions": [
+    "*://*.zendesk.com/*",
+    "*://*.fly.dev/*",
+    "*://*.quivr.com/*"
+  ],
   "action": {
     "default_popup": "src/popup/index.html",
     "default_icon": {
@@ -27,10 +32,10 @@
   "content_scripts": [
     {
       "js": [
-        "assets/index.ts-loader-DhH41zZQ.js"
+        "assets/index.ts-loader-DUnJWrtR.js"
       ],
       "matches": [
-        "<all_urls>"
+        "*://*.zendesk.com/*"
       ],
       "run_at": "document_idle",
       "all_frames": true
@@ -39,12 +44,12 @@
   "web_accessible_resources": [
     {
       "matches": [
-        "<all_urls>"
+        "*://*.zendesk.com/*"
       ],
       "resources": [
-        "assets/storage-BoEp-vZp.js",
+        "assets/storage-Dn5o-L3t.js",
         "assets/language-tool-client-kH6335wn.js",
-        "assets/index.ts-CcbaLece.js"
+        "assets/index.ts-DzBzG36m.js"
       ],
       "use_dynamic_url": false
     }

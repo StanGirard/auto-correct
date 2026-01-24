@@ -44,7 +44,7 @@ export interface Settings {
 export const DEFAULT_SETTINGS: Settings = {
   enabled: true,
   language: 'auto',
-  apiUrl: 'https://languagetool-autocorrect.fly.dev',
+  apiUrl: 'https://grammar-rs-autocorrect.fly.dev',
   personalDictionary: [],
   checkLevel: 'default',
   disabledRules: [],
