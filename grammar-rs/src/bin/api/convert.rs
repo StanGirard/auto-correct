@@ -3,6 +3,15 @@
 use grammar_rs::core::{CheckResult, Match as GrsMatch, Severity};
 use crate::types::*;
 
+/// Convert byte offset to character offset
+/// Rust strings are UTF-8 (bytes), but JavaScript uses UTF-16 code units
+/// LanguageTool returns character offsets, so we need to convert
+fn byte_offset_to_char_offset(text: &str, byte_offset: usize) -> usize {
+    text[..byte_offset.min(text.len())]
+        .chars()
+        .count()
+}
+
 /// Convert a grammar-rs CheckResult to LanguageTool format
 pub fn convert_result(
     result: CheckResult,
@@ -47,11 +56,20 @@ fn convert_match(m: GrsMatch, text: &str) -> LTMatch {
 
     let context_text = &text[context_start..context_end];
 
+    // Convert byte offsets to character offsets (LanguageTool uses char offsets)
+    let char_offset = byte_offset_to_char_offset(text, m.span.start);
+    let char_end = byte_offset_to_char_offset(text, m.span.end);
+    let char_length = char_end - char_offset;
+
+    // Context offset is relative to context_start (also in chars)
+    let context_char_offset = byte_offset_to_char_offset(text, m.span.start)
+        - byte_offset_to_char_offset(text, context_start);
+
     LTMatch {
         message: m.message.clone(),
         short_message: short_message(&m.message),
-        offset: m.span.start,
-        length: m.span.end - m.span.start,
+        offset: char_offset,
+        length: char_length,
         replacements: m
             .suggestions
             .iter()
@@ -64,8 +82,8 @@ fn convert_match(m: GrsMatch, text: &str) -> LTMatch {
         },
         context: Context {
             text: context_text.to_string(),
-            offset: m.span.start - context_start,
-            length: m.span.end - m.span.start,
+            offset: context_char_offset,
+            length: char_length,
         },
     }
 }
